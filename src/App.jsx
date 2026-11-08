@@ -127,27 +127,33 @@ export default function App() {
     }
   };
 
-  // --- STATE: BLUETOOTH THERMAL PRINTER ---
+  // --- STATE & FUNGSI BLUETOOTH THERMAL PRINTER (RPP02N READY) ---
   const [btDevice, setBtDevice] = useState(null);
   const [btPrintChar, setBtPrintChar] = useState(null);
   const [btStatus, setBtStatus] = useState('Terputus');
 
   const connectBluetoothPrinter = async () => {
     if (!navigator.bluetooth) {
-      alert('Browser Anda belum mendukung Web Bluetooth. Gunakan Google Chrome di Android / Laptop.');
+      alert('Browser Anda belum mendukung Web Bluetooth API. Gunakan Google Chrome versi terbaru dan aktifkan Bluetooth & Lokasi (GPS).');
       return;
     }
     try {
-      setBtStatus('Menghubungkan...');
+      setBtStatus('Mencari...');
+      
+      // Request device dengan pencarian lebih luas untuk printer RPP02N dan printer POS thermal 58mm/80mm
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [
           '000018f0-0000-1000-8000-00805f9b34fb',
           'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
           '49535343-fe7d-4158-6b44-508a0d9cd86e',
-          '00001101-0000-1000-8000-00805f9b34fb'
+          '00001101-0000-1000-8000-00805f9b34fb', // Standard Serial Port Profile (RPP02N / MPT-II)
+          '0000180a-0000-1000-8000-00805f9b34fb',
+          '0000ff00-0000-1000-8000-00805f9b34fb'
         ]
       });
+
+      setBtStatus('Menghubungkan...');
       const server = await device.gatt.connect();
       const services = await server.getPrimaryServices();
       let foundChar = null;
@@ -171,10 +177,14 @@ export default function App() {
         setBtStatus('Terhubung');
       } else {
         setBtStatus('Printer Ditemukan');
+        alert('Printer terhubung tetapi karakteristik cetak Bluetooth tidak merespons. Gunakan Opsi Cetak PDF/System Print jika gagal.');
       }
     } catch (err) {
       console.error(err);
       setBtStatus('Terputus');
+      if (err.name !== 'NotFoundError') {
+        alert('Gagal menyambung ke Bluetooth Printer. Pastikan GPS/Lokasi HP aktif dan Printer RPP02N dalam kondisi ON.');
+      }
     }
   };
 
@@ -709,7 +719,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-black uppercase tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500 drop-shadow-sm whitespace-nowrap">
-              {settings.storeName || 'NAMA WARUNG'}
+              {settings.storeName || 'NAMA WARUNG (BELUM DI-SET)'}
             </h1>
             <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${t.textMuted}`}>
               <CheckCircle2 size={10} className="text-emerald-500"/> {settings.phone || 'Sistem Kasir Aktif'}
@@ -734,7 +744,7 @@ export default function App() {
             }`}
             title="Sambungkan Thermal Bluetooth Printer"
           >
-            <Bluetooth size={14}/> {btStatus === 'Terhubung' ? 'Printer BT Ready' : 'Hubungkan BT Printer'}
+            <Bluetooth size={14}/> {btStatus === 'Terhubung' ? 'Printer BT Ready' : btStatus === 'Mencari...' ? 'Mencari BT...' : 'Hubungkan BT Printer'}
           </button>
           
           <nav className={`hidden md:flex p-1.5 rounded-2xl border transition-colors duration-300 ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-100/50 border-slate-200'}`}>
@@ -866,7 +876,6 @@ export default function App() {
                       <input type="text" placeholder="Wajib diisi" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-3 text-sm rounded-xl border outline-none transition-all ${t.input}`} />
                     </div>
 
-                    {/* REVISI ALAMAT / MEJA: PILIHAN OPSI CEPAT + INPUT MANUAL */}
                     <div>
                       <div className="flex justify-between items-center mb-1.5">
                         <label className="text-[10px] font-black uppercase tracking-wider opacity-70">Alamat / Meja</label>
@@ -980,7 +989,6 @@ export default function App() {
                     <div className="space-y-3 mb-3">
                       <input type="text" placeholder="Nama Pemesan *" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-3.5 text-sm font-bold rounded-xl border outline-none ${t.input}`} />
                       
-                      {/* REVISI ALAMAT / MEJA MOBILE DRAWER */}
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-[10px] font-bold opacity-70 uppercase">Alamat / Meja</span>
@@ -1423,7 +1431,7 @@ export default function App() {
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'factory', payload: null })}
                   className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:text-white text-red-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total </span>
+                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total (Siap Jual)</span>
                   <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data (Nama Warung, WA, Menu, Omset, QRIS dikosongkan total 100%).</span>
                 </button>
               </div>
@@ -1463,7 +1471,7 @@ export default function App() {
 
             <h3 className="text-lg font-black uppercase tracking-wide text-red-500 mb-2">
               {resetModalConfig.type === 'factory' 
-                ? 'Konfirmasi Reset Total' 
+                ? 'Konfirmasi Reset Total (Siap Jual)' 
                 : resetModalConfig.type === 'transactions'
                 ? 'Clear Semua Transaksi?'
                 : `Hapus Order ${resetModalConfig.payload?.id}?`}
