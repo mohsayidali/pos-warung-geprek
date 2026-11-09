@@ -127,33 +127,49 @@ export default function App() {
     }
   };
 
-  // --- STATE & FUNGSI BLUETOOTH THERMAL PRINTER (RPP02N READY) ---
+  // --- HELPER FORMAT CURRENCY KHUSUS PRINTER THERMAL (TANPA KARAKTER ANEH \u00A0) ---
+  const formatBTPrice = (val) => {
+    const num = Number(val) || 0;
+    return 'Rp ' + num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const formatIDR = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+
+  // --- STATE & KONEKSI BLUETOOTH THERMAL PRINTER (WITH AUTO RETRY & FIX ENCODING) ---
   const [btDevice, setBtDevice] = useState(null);
   const [btPrintChar, setBtPrintChar] = useState(null);
   const [btStatus, setBtStatus] = useState('Terputus');
 
   const connectBluetoothPrinter = async () => {
     if (!navigator.bluetooth) {
-      alert('Browser Anda belum mendukung Web Bluetooth API. Gunakan Google Chrome versi terbaru dan aktifkan Bluetooth & Lokasi (GPS).');
-      return;
+      alert('Browser Anda belum mendukung Web Bluetooth API. Gunakan Google Chrome di Android dan aktifkan Bluetooth + Lokasi (GPS).');
+      return null;
     }
-    try {
-      setBtStatus('Mencari...');
-      
-      // Request device dengan pencarian lebih luas untuk printer RPP02N dan printer POS thermal 58mm/80mm
-      const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb',
-          'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-          '49535343-fe7d-4158-6b44-508a0d9cd86e',
-          '00001101-0000-1000-8000-00805f9b34fb', // Standard Serial Port Profile (RPP02N / MPT-II)
-          '0000180a-0000-1000-8000-00805f9b34fb',
-          '0000ff00-0000-1000-8000-00805f9b34fb'
-        ]
-      });
 
+    // Jika sudah terhubung dan masih aktif
+    if (btDevice && btDevice.gatt.connected && btPrintChar) {
+      setBtStatus('Terhubung');
+      return btPrintChar;
+    }
+
+    try {
       setBtStatus('Menghubungkan...');
+      
+      let device = btDevice;
+      if (!device || !device.gatt.connected) {
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            '000018f0-0000-1000-8000-00805f9b34fb',
+            'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+            '49535343-fe7d-4158-6b44-508a0d9cd86e',
+            '00001101-0000-1000-8000-00805f9b34fb',
+            '0000180a-0000-1000-8000-00805f9b34fb',
+            '0000ff00-0000-1000-8000-00805f9b34fb'
+          ]
+        });
+      }
+
       const server = await device.gatt.connect();
       const services = await server.getPrimaryServices();
       let foundChar = null;
@@ -175,39 +191,52 @@ export default function App() {
         setBtDevice(device);
         setBtPrintChar(foundChar);
         setBtStatus('Terhubung');
+        return foundChar;
       } else {
-        setBtStatus('Printer Ditemukan');
-        alert('Printer terhubung tetapi karakteristik cetak Bluetooth tidak merespons. Gunakan Opsi Cetak PDF/System Print jika gagal.');
+        setBtStatus('Terputus');
+        return null;
       }
     } catch (err) {
       console.error(err);
       setBtStatus('Terputus');
-      if (err.name !== 'NotFoundError') {
-        alert('Gagal menyambung ke Bluetooth Printer. Pastikan GPS/Lokasi HP aktif dan Printer RPP02N dalam kondisi ON.');
-      }
+      return null;
     }
   };
 
   const printViaBluetooth = async (orderReceipt) => {
-    if (!btPrintChar) {
-      await connectBluetoothPrinter();
+    let char = btPrintChar;
+
+    // Percobaan Koneksi 1
+    if (!char || !btDevice?.gatt?.connected) {
+      char = await connectBluetoothPrinter();
     }
-    if (!btPrintChar) {
+
+    // Auto Retry Percobaan Koneksi 2 (Mencegah Gagal Panggilan Pertama)
+    if (!char) {
+      await new Promise(r => setTimeout(r, 600));
+      char = await connectBluetoothPrinter();
+    }
+
+    if (!char) {
+      alert('Koneksi Bluetooth Printer belum siap. Mengalihkan ke Cetak Sistem Windows/Android...');
       window.print();
       return;
     }
+
     try {
       const encoder = new TextEncoder();
-      const init = '\x1B\x40';
-      const center = '\x1B\x61\x01';
-      const left = '\x1B\x61\x00';
-      const boldOn = '\x1B\x45\x01';
-      const boldOff = '\x1B\x45\x00';
-      const fontDouble = '\x1D\x21\x11';
-      const fontNormal = '\x1D\x21\x00';
-      const feed = '\x0A\x0A\x0A';
+      
+      // PERINTAH ESC/POS UNTUK PRINTER RPP02N & THERMAL 58MM
+      const init = '\x1B\x40';             // Reset Printer
+      const setCodePage = '\x1B\x74\x00';    // Set Standard ASCII CP437
+      const center = '\x1B\x61\x01';          // Rata Tengah
+      const left = '\x1B\x61\x00';            // Rata Kiri
+      const boldOn = '\x1B\x45\x01';          // Tebal ON
+      const boldOff = '\x1B\x45\x00';         // Tebal OFF
+      const feed = '\x0A\x0A\x0A';            // Feed Kertas
 
-      let text = init + center + boldOn + fontDouble + (settings.storeName || 'NAMA WARUNG').toUpperCase() + '\n' + fontNormal + boldOff;
+      // Header Nama Warung (Menggunakan BOLD NORMAL tanpa Double Width agar muat 32 karakter per baris)
+      let text = init + setCodePage + center + boldOn + (settings.storeName || 'WARUNG COBEK GEPREK').toUpperCase() + '\n' + boldOff;
       if (settings.phone) text += 'Telp: ' + settings.phone + '\n';
       text += 'ID: ' + orderReceipt.id + '\n';
       text += new Date(orderReceipt.date).toLocaleString('id-ID') + '\n';
@@ -220,17 +249,17 @@ export default function App() {
       orderReceipt.items.forEach(item => {
         const name = item.name.substring(0, 14).padEnd(14, ' ');
         const qtyStr = String(item.qty).padStart(3, ' ');
-        const totalStr = formatIDR(item.price * item.qty).replace('Rp', '').trim().padStart(11, ' ');
+        const totalStr = formatBTPrice(item.price * item.qty).replace('Rp ', '').trim().padStart(11, ' ');
         text += `${qtyStr}x ${name} ${totalStr}\n`;
         if (item.note) text += `    * ${item.note}\n`;
       });
 
       text += '--------------------------------\n';
-      text += `Subtotal    : ${formatIDR(orderReceipt.subTotal)}\n`;
-      if (orderReceipt.extraCharge > 0) text += `Biaya Extra : ${formatIDR(orderReceipt.extraCharge)}\n`;
-      text += boldOn + `TOTAL       : ${formatIDR(orderReceipt.total)}\n` + boldOff;
-      text += `Bayar (${orderReceipt.method}): ${formatIDR(orderReceipt.cashGiven || orderReceipt.total)}\n`;
-      if (orderReceipt.method === 'Tunai') text += `Kembali     : ${formatIDR(orderReceipt.kembalian || 0)}\n`;
+      text += `Subtotal    : ${formatBTPrice(orderReceipt.subTotal)}\n`;
+      if (orderReceipt.extraCharge > 0) text += `Biaya Extra : ${formatBTPrice(orderReceipt.extraCharge)}\n`;
+      text += boldOn + `TOTAL       : ${formatBTPrice(orderReceipt.total)}\n` + boldOff;
+      text += `Bayar (${orderReceipt.method}): ${formatBTPrice(orderReceipt.cashGiven || orderReceipt.total)}\n`;
+      if (orderReceipt.method === 'Tunai') text += `Kembali     : ${formatBTPrice(orderReceipt.kembalian || 0)}\n`;
       text += '--------------------------------\n' + center;
       text += '*** TERIMA KASIH ***\n\n' + feed;
 
@@ -238,14 +267,15 @@ export default function App() {
       const chunkSize = 100;
       for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, i + chunkSize);
-        if (btPrintChar.properties.writeWithoutResponse) {
-          await btPrintChar.writeValueWithoutResponse(chunk);
+        if (char.properties.writeWithoutResponse) {
+          await char.writeValueWithoutResponse(chunk);
         } else {
-          await btPrintChar.writeValue(chunk);
+          await char.writeValue(chunk);
         }
       }
     } catch (e) {
-      alert('Cetak Bluetooth Gagal, Mengalihkan ke Cetak Standar: ' + e.message);
+      console.error(e);
+      alert('Cetak Bluetooth Gagal: ' + e.message + '. Mengalihkan ke Cetak Standar...');
       window.print();
     }
   };
@@ -681,8 +711,6 @@ export default function App() {
     return Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 3);
   }, [activeOrdersForReport]);
 
-  const formatIDR = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
-
   const isDark = theme === 'dark';
   const t = {
     bg: isDark ? 'bg-zinc-950' : 'bg-slate-50',
@@ -719,7 +747,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-black uppercase tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500 drop-shadow-sm whitespace-nowrap">
-              {settings.storeName || 'NAMA WARUNG'}
+              {settings.storeName || 'NAMA WARUNG (BELUM DI-SET)'}
             </h1>
             <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${t.textMuted}`}>
               <CheckCircle2 size={10} className="text-emerald-500"/> {settings.phone || 'Sistem Kasir Aktif'}
@@ -744,7 +772,7 @@ export default function App() {
             }`}
             title="Sambungkan Thermal Bluetooth Printer"
           >
-            <Bluetooth size={14}/> {btStatus === 'Terhubung' ? 'Printer BT Ready' : btStatus === 'Mencari...' ? 'Mencari BT...' : 'Hubungkan BT Printer'}
+            <Bluetooth size={14}/> {btStatus === 'Terhubung' ? 'Printer BT Ready' : btStatus === 'Menghubungkan...' ? 'Menghubungkan...' : 'Hubungkan BT Printer'}
           </button>
           
           <nav className={`hidden md:flex p-1.5 rounded-2xl border transition-colors duration-300 ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-100/50 border-slate-200'}`}>
@@ -1431,7 +1459,7 @@ export default function App() {
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'factory', payload: null })}
                   className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:text-white text-red-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total</span>
+                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total (Siap Jual)</span>
                   <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data (Nama Warung, WA, Menu, Omset, QRIS dikosongkan total 100%).</span>
                 </button>
               </div>
@@ -1471,7 +1499,7 @@ export default function App() {
 
             <h3 className="text-lg font-black uppercase tracking-wide text-red-500 mb-2">
               {resetModalConfig.type === 'factory' 
-                ? 'Konfirmasi Reset Total' 
+                ? 'Konfirmasi Reset Total (Siap Jual)' 
                 : resetModalConfig.type === 'transactions'
                 ? 'Clear Semua Transaksi?'
                 : `Hapus Order ${resetModalConfig.payload?.id}?`}
