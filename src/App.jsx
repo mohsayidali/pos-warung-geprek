@@ -719,7 +719,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-black uppercase tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500 drop-shadow-sm whitespace-nowrap">
-              {settings.storeName || 'NAMA WARUNG (BELUM DI-SET)'}
+              {settings.storeName || 'NAMA WARUNG'}
             </h1>
             <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${t.textMuted}`}>
               <CheckCircle2 size={10} className="text-emerald-500"/> {settings.phone || 'Sistem Kasir Aktif'}
@@ -1431,7 +1431,7 @@ export default function App() {
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'factory', payload: null })}
                   className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:text-white text-red-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total (Siap Jual)</span>
+                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total</span>
                   <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data (Nama Warung, WA, Menu, Omset, QRIS dikosongkan total 100%).</span>
                 </button>
               </div>
@@ -1471,7 +1471,7 @@ export default function App() {
 
             <h3 className="text-lg font-black uppercase tracking-wide text-red-500 mb-2">
               {resetModalConfig.type === 'factory' 
-                ? 'Konfirmasi Reset Total (Siap Jual)' 
+                ? 'Konfirmasi Reset Total' 
                 : resetModalConfig.type === 'transactions'
                 ? 'Clear Semua Transaksi?'
                 : `Hapus Order ${resetModalConfig.payload?.id}?`}
