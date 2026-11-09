@@ -660,36 +660,44 @@ export default function App() {
     setShowMenuModal(true);
   };
 
-  const handleSaveMenu = async () => {
+const handleSaveMenu = async () => {
     if (!menuForm.name || !menuForm.price) return;
     
     let finalCategory = menuForm.category;
     if (isCustomCategoryMode && customCategoryInput.trim()) {
       finalCategory = customCategoryInput.trim();
       await supabase.from('categories').insert({ name: finalCategory });
-      fetchCategories();
+      await fetchCategories();
     }
 
     if (editingMenu) {
-      await supabase.from('menus').update({
+      // PROSES EDIT MENU EXISTING
+      const { error } = await supabase.from('menus').update({
         name: menuForm.name,
         price: Number(menuForm.price),
         category: finalCategory,
         image: menuForm.image,
         is_available: menuForm.isAvailable
       }).eq('id', editingMenu.id);
+
+      if (error) alert('Gagal mengedit menu: ' + error.message);
     } else {
-      await supabase.from('menus').insert({
-        id: Date.now(),
+      // PROSES TAMBAH MENU BARU (Biarkan Supabase yang generate ID-nya secara otomatis)
+      const { error } = await supabase.from('menus').insert([{
         name: menuForm.name,
         price: Number(menuForm.price),
         category: finalCategory,
         image: menuForm.image,
         is_available: menuForm.isAvailable
-      });
+      }]);
+
+      if (error) {
+        alert('Gagal menambah menu: ' + error.message);
+      }
     }
 
-    fetchMenus();
+    // Refresh daftar menu dari Supabase & Tutup Modal
+    await fetchMenus();
     setShowMenuModal(false);
   };
 
