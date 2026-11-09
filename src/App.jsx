@@ -4,22 +4,30 @@ import {
   Trash2, Printer, ChefHat, Image as ImageIcon, Download, 
   CreditCard, X, MapPin, ChevronUp, Edit3, CheckCircle2,
   Clock, TrendingUp, Calendar, Bluetooth, Smartphone, RefreshCw,
-  AlertTriangle, ShieldAlert
+  AlertTriangle, ShieldAlert, Tag, Percent
 } from 'lucide-react';
 
-// --- NATIVE SVG AREA CHART ---
+// --- NATIVE SVG AREA CHART (REVISI: SKALA DINAMIS & FULL HEIGHT) ---
 const SimpleAreaChart = ({ data, isDark }) => {
   if (!data || data.length === 0) return null;
-  const maxVal = Math.max(...data.map(d => d.total), 1000);
-  const width = 500;
-  const height = 200;
-  const paddingX = 40;
-  const paddingTop = 20;
-  const paddingBottom = 30;
+
+  const totals = data.map(d => d.total);
+  const rawMax = Math.max(...totals, 10);
+  const rawMin = Math.min(...totals);
+  
+  const minVal = rawMin === rawMax ? 0 : Math.max(0, rawMin - (rawMax - rawMin) * 0.2);
+  const maxVal = rawMax + (rawMax - minVal) * 0.15;
+
+  const width = 600;
+  const height = 300;
+  const paddingX = 45;
+  const paddingTop = 40;
+  const paddingBottom = 40;
 
   const points = data.map((d, i) => {
     const x = paddingX + (i / Math.max(data.length - 1, 1)) * (width - paddingX * 2);
-    const y = height - paddingBottom - (d.total / maxVal) * (height - paddingTop - paddingBottom);
+    const range = maxVal - minVal || 1;
+    const y = height - paddingBottom - ((d.total - minVal) / range) * (height - paddingTop - paddingBottom);
     return { x, y, name: d.name, total: d.total };
   });
 
@@ -32,24 +40,24 @@ const SimpleAreaChart = ({ data, isDark }) => {
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#f97316" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#f97316" stopOpacity="0.0" />
+            <stop offset="100%" stopColor="#f97316" stopOpacity="0.05" />
           </linearGradient>
         </defs>
 
-        <line x1={paddingX} y1={paddingTop} x2={width - paddingX} y2={paddingTop} stroke={isDark ? '#3f3f46' : '#e2e8f0'} strokeDasharray="4 4" />
-        <line x1={paddingX} y1={(height - paddingBottom + paddingTop) / 2} x2={width - paddingX} y2={(height - paddingBottom + paddingTop) / 2} stroke={isDark ? '#3f3f46' : '#e2e8f0'} strokeDasharray="4 4" />
-        <line x1={paddingX} y1={height - paddingBottom} x2={width - paddingX} y2={height - paddingBottom} stroke={isDark ? '#3f3f46' : '#e2e8f0'} />
+        <line x1={paddingX} y1={paddingTop} x2={width - paddingX} y2={paddingTop} stroke={isDark ? '#3f3f46' : '#e2e8f0'} strokeDasharray="4 4" opacity="0.6" />
+        <line x1={paddingX} y1={(height - paddingBottom + paddingTop) / 2} x2={width - paddingX} y2={(height - paddingBottom + paddingTop) / 2} stroke={isDark ? '#3f3f46' : '#e2e8f0'} strokeDasharray="4 4" opacity="0.6" />
+        <line x1={paddingX} y1={height - paddingBottom} x2={width - paddingX} y2={height - paddingBottom} stroke={isDark ? '#3f3f46' : '#e2e8f0'} opacity="0.8" />
 
         <path d={areaD} fill="url(#areaGrad)" />
-        <path d={pathD} fill="none" stroke="#f97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={pathD} fill="none" stroke="#f97316" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
 
         {points.map((p, i) => (
           <g key={i} className="group">
-            <circle cx={p.x} cy={p.y} r="5" fill="#f97316" stroke={isDark ? '#18181b' : '#ffffff'} strokeWidth="2" className="transition-all group-hover:r-7 cursor-pointer" />
-            <text x={p.x} y={p.y - 10} textAnchor="middle" fill={isDark ? '#f4f4f5' : '#1e293b'} fontSize="10" fontWeight="bold">
+            <circle cx={p.x} cy={p.y} r="6" fill="#f97316" stroke={isDark ? '#18181b' : '#ffffff'} strokeWidth="2.5" className="transition-all group-hover:r-8 cursor-pointer" />
+            <text x={p.x} y={p.y - 12} textAnchor="middle" fill={isDark ? '#f4f4f5' : '#1e293b'} fontSize="12" fontWeight="bold">
               {p.total >= 1000000 ? `${(p.total / 1000000).toFixed(1)}M` : p.total >= 1000 ? `${(p.total / 1000).toFixed(0)}k` : p.total}
             </text>
-            <text x={p.x} y={height - 10} textAnchor="middle" fill={isDark ? '#a1a1aa' : '#64748b'} fontSize="10" fontWeight="600">
+            <text x={p.x} y={height - 12} textAnchor="middle" fill={isDark ? '#a1a1aa' : '#64748b'} fontSize="11" fontWeight="600">
               {p.name}
             </text>
           </g>
@@ -127,7 +135,6 @@ export default function App() {
     }
   };
 
-  // --- HELPER FORMAT CURRENCY KHUSUS PRINTER THERMAL (TANPA KARAKTER ANEH \u00A0) ---
   const formatBTPrice = (val) => {
     const num = Number(val) || 0;
     return 'Rp ' + num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -135,7 +142,7 @@ export default function App() {
 
   const formatIDR = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
 
-  // --- STATE & KONEKSI BLUETOOTH THERMAL PRINTER (WITH AUTO RETRY & FIX ENCODING) ---
+  // --- STATE & KONEKSI BLUETOOTH THERMAL PRINTER ---
   const [btDevice, setBtDevice] = useState(null);
   const [btPrintChar, setBtPrintChar] = useState(null);
   const [btStatus, setBtStatus] = useState('Terputus');
@@ -146,7 +153,6 @@ export default function App() {
       return null;
     }
 
-    // Jika sudah terhubung dan masih aktif
     if (btDevice && btDevice.gatt.connected && btPrintChar) {
       setBtStatus('Terhubung');
       return btPrintChar;
@@ -206,12 +212,10 @@ export default function App() {
   const printViaBluetooth = async (orderReceipt) => {
     let char = btPrintChar;
 
-    // Percobaan Koneksi 1
     if (!char || !btDevice?.gatt?.connected) {
       char = await connectBluetoothPrinter();
     }
 
-    // Auto Retry Percobaan Koneksi 2 (Mencegah Gagal Panggilan Pertama)
     if (!char) {
       await new Promise(r => setTimeout(r, 600));
       char = await connectBluetoothPrinter();
@@ -226,16 +230,14 @@ export default function App() {
     try {
       const encoder = new TextEncoder();
       
-      // PERINTAH ESC/POS UNTUK PRINTER RPP02N & THERMAL 58MM
-      const init = '\x1B\x40';             // Reset Printer
-      const setCodePage = '\x1B\x74\x00';    // Set Standard ASCII CP437
-      const center = '\x1B\x61\x01';          // Rata Tengah
-      const left = '\x1B\x61\x00';            // Rata Kiri
-      const boldOn = '\x1B\x45\x01';          // Tebal ON
-      const boldOff = '\x1B\x45\x00';         // Tebal OFF
-      const feed = '\x0A\x0A\x0A';            // Feed Kertas
+      const init = '\x1B\x40';
+      const setCodePage = '\x1B\x74\x00';
+      const center = '\x1B\x61\x01';
+      const left = '\x1B\x61\x00';
+      const boldOn = '\x1B\x45\x01';
+      const boldOff = '\x1B\x45\x00';
+      const feed = '\x0A\x0A\x0A';
 
-      // Header Nama Warung (Menggunakan BOLD NORMAL tanpa Double Width agar muat 32 karakter per baris)
       let text = init + setCodePage + center + boldOn + (settings.storeName || 'WARUNG COBEK GEPREK').toUpperCase() + '\n' + boldOff;
       if (settings.phone) text += 'Telp: ' + settings.phone + '\n';
       text += 'ID: ' + orderReceipt.id + '\n';
@@ -256,6 +258,9 @@ export default function App() {
 
       text += '--------------------------------\n';
       text += `Subtotal    : ${formatBTPrice(orderReceipt.subTotal)}\n`;
+      if (orderReceipt.discountAmount > 0) {
+        text += `Diskon      : -${formatBTPrice(orderReceipt.discountAmount)}\n`;
+      }
       if (orderReceipt.extraCharge > 0) text += `Biaya Extra : ${formatBTPrice(orderReceipt.extraCharge)}\n`;
       text += boldOn + `TOTAL       : ${formatBTPrice(orderReceipt.total)}\n` + boldOff;
       text += `Bayar (${orderReceipt.method}): ${formatBTPrice(orderReceipt.cashGiven || orderReceipt.total)}\n`;
@@ -280,7 +285,6 @@ export default function App() {
     }
   };
 
-  // --- STATE: PENGATURAN LOCALSTORAGE ---
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('cgb_settings');
     if (saved) {
@@ -300,7 +304,6 @@ export default function App() {
     localStorage.setItem('cgb_settings', JSON.stringify(settings));
   }, [settings]);
 
-  // --- STATE: MENU MANAGEMENT LOCALSTORAGE ---
   const [menus, setMenus] = useState(() => {
     const saved = localStorage.getItem('cgb_menus');
     if (saved) {
@@ -320,18 +323,31 @@ export default function App() {
     localStorage.setItem('cgb_menus', JSON.stringify(menus));
   }, [menus]);
 
-  // --- STATE: MENU MANAGEMENT MODAL ---
+  const categoriesList = useMemo(() => {
+    const setCat = new Set(['Makanan', 'Minuman', 'Tambahan']);
+    menus.forEach(m => {
+      if (m.category) setCat.add(m.category);
+    });
+    return Array.from(setCat);
+  }, [menus]);
+
+  const [selectedCategoryTab, setSelectedCategoryTab] = useState('Semua');
+
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [editingMenu, setEditingMenu] = useState(null);
   const [menuForm, setMenuForm] = useState({ name: '', price: '', category: 'Makanan', image: '🍽️', isAvailable: true });
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [isCustomCategoryMode, setIsCustomCategoryMode] = useState(false);
   const menuImageRef = useRef(null);
 
-  // --- STATE: KASIR & KERANJANG ---
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
   const [extraCharge, setExtraCharge] = useState(0);
-  
+
+  const [discountType, setDiscountType] = useState('rp');
+  const [discountValue, setDiscountValue] = useState(0);
+
   const [showCheckout, setShowCheckout] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('Tunai');
   const [cashGiven, setCashGiven] = useState(0);
@@ -339,16 +355,15 @@ export default function App() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [currentOrderReceipt, setCurrentOrderReceipt] = useState(null);
 
-  // --- STATE: DAPUR & LAPORAN LOCALSTORAGE ---
   const [orders, setOrders] = useState(() => {
     const saved = localStorage.getItem('cgb_orders');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return [
-      { id: 'ORD-1001', date: new Date(2026, 10, 4, 12, 42).toISOString(), customerName: 'Zahwa', address: 'Dine-in', items: [{name: 'Ayam Geprek Cobek Batu', qty: 2, price: 15000}], subTotal: 30000, extraCharge: 0, total: 30000, method: 'Tunai', status: 'Selesai' },
-      { id: 'ORD-1002', date: new Date(2026, 10, 4, 14, 42).toISOString(), customerName: 'Santri Putra', address: 'Kamar B', items: [{name: 'Indomie Geprek', qty: 3, price: 12000, note: 'Pedas mampus'}], subTotal: 36000, extraCharge: 2000, total: 38000, method: 'QRIS', status: 'Dimasak' },
-      { id: 'ORD-1003', date: new Date(2026, 10, 4, 16, 12).toISOString(), customerName: 'Budi', address: 'Takeaway', items: [{name: 'Ayam Geprek Bakar', qty: 1, price: 18000}, {name: 'Es Teh Manis', qty: 1, price: 4000}], subTotal: 22000, extraCharge: 0, total: 22000, method: 'Transfer', status: 'Masuk' }
+      { id: 'ORD-1001', date: new Date(2026, 10, 4, 12, 42).toISOString(), customerName: 'Zahwa', address: 'Dine-in', items: [{name: 'Ayam Geprek Cobek Batu', qty: 2, price: 15000}], subTotal: 30000, discountAmount: 0, extraCharge: 0, total: 30000, method: 'Tunai', status: 'Selesai' },
+      { id: 'ORD-1002', date: new Date(2026, 10, 4, 14, 42).toISOString(), customerName: 'Santri Putra', address: 'Kamar B', items: [{name: 'Indomie Geprek', qty: 3, price: 12000, note: 'Pedas mampus'}], subTotal: 36000, discountAmount: 0, extraCharge: 2000, total: 38000, method: 'QRIS', status: 'Dimasak' },
+      { id: 'ORD-1003', date: new Date(2026, 10, 4, 16, 12).toISOString(), customerName: 'Budi', address: 'Takeaway', items: [{name: 'Ayam Geprek Bakar', qty: 1, price: 18000}, {name: 'Es Teh Manis', qty: 1, price: 4000}], subTotal: 22000, discountAmount: 2000, extraCharge: 0, total: 20000, method: 'Transfer', status: 'Masuk' }
     ];
   });
 
@@ -356,7 +371,6 @@ export default function App() {
     localStorage.setItem('cgb_orders', JSON.stringify(orders));
   }, [orders]);
 
-  // --- CUSTOM RESET & DELETE MODAL STATE ---
   const [resetModalConfig, setResetModalConfig] = useState({ isOpen: false, type: '', payload: null });
 
   const executeClearTransactions = () => {
@@ -425,7 +439,6 @@ export default function App() {
     });
   }, [orders, selectedYearFilter, selectedMonthFilter, selectedPaymentFilter]);
 
-  // KERANJANG LOGIC
   const addToCart = (menu) => {
     if (!menu.isAvailable) return;
     const existingIndex = cart.findIndex(item => item.id === menu.id && item.note === '');
@@ -465,7 +478,17 @@ export default function App() {
   const removeFromCart = (cartId) => setCart(cart.filter(item => item.cartId !== cartId));
   
   const subTotal = useMemo(() => cart.reduce((sum, item) => sum + (item.price * (Number(item.qty) || 0)), 0), [cart]);
-  const totalTagihan = subTotal + Number(extraCharge || 0);
+  
+  const calculatedDiscount = useMemo(() => {
+    const val = Number(discountValue) || 0;
+    if (val <= 0) return 0;
+    if (discountType === 'percent') {
+      return Math.round((subTotal * Math.min(val, 100)) / 100);
+    }
+    return Math.min(val, subTotal);
+  }, [subTotal, discountType, discountValue]);
+
+  const totalTagihan = Math.max(0, subTotal - calculatedDiscount + Number(extraCharge || 0));
   const kembalian = cashGiven - totalTagihan;
   const isCashSufficient = paymentMethod !== 'Tunai' || cashGiven >= totalTagihan;
 
@@ -483,6 +506,7 @@ export default function App() {
         address: deliveryNote || 'Dine-in / Takeaway',
         items: [...cart],
         subTotal,
+        discountAmount: calculatedDiscount,
         extraCharge: Number(extraCharge || 0),
         total: totalTagihan,
         method: paymentMethod,
@@ -503,20 +527,24 @@ export default function App() {
     setCustomerName('');
     setDeliveryNote('');
     setExtraCharge(0);
+    setDiscountValue(0);
     setCashGiven(0);
     setShowReceipt(false);
     setIsMobileCartOpen(false);
     setCurrentOrderReceipt(null);
   };
 
-  // MENU MANAGEMENT LOGIC
   const handleOpenMenuModal = (menu = null) => {
     if (menu) {
       setEditingMenu(menu);
       setMenuForm({ ...menu });
+      setIsCustomCategoryMode(false);
+      setCustomCategoryInput('');
     } else {
       setEditingMenu(null);
-      setMenuForm({ name: '', price: '', category: 'Makanan', image: '🍽️', isAvailable: true });
+      setMenuForm({ name: '', price: '', category: categoriesList[0] || 'Makanan', image: '🍽️', isAvailable: true });
+      setIsCustomCategoryMode(false);
+      setCustomCategoryInput('');
     }
     setShowMenuModal(true);
   };
@@ -524,10 +552,14 @@ export default function App() {
   const handleSaveMenu = () => {
     if (!menuForm.name || !menuForm.price) return;
     
+    const finalCategory = isCustomCategoryMode && customCategoryInput.trim() 
+      ? customCategoryInput.trim() 
+      : menuForm.category;
+
     if (editingMenu) {
-      setMenus(menus.map(m => m.id === editingMenu.id ? { ...menuForm, id: m.id, price: Number(menuForm.price) } : m));
+      setMenus(menus.map(m => m.id === editingMenu.id ? { ...menuForm, category: finalCategory, id: m.id, price: Number(menuForm.price) } : m));
     } else {
-      setMenus([...menus, { ...menuForm, id: Date.now(), price: Number(menuForm.price) }]);
+      setMenus([...menus, { ...menuForm, category: finalCategory, id: Date.now(), price: Number(menuForm.price) }]);
     }
     setShowMenuModal(false);
   };
@@ -551,12 +583,15 @@ export default function App() {
     }
   };
 
-  // DAPUR LOGIC
+  const filteredMenus = useMemo(() => {
+    if (selectedCategoryTab === 'Semua') return menus;
+    return menus.filter(m => m.category === selectedCategoryTab);
+  }, [menus, selectedCategoryTab]);
+
   const updateOrderStatus = (id, newStatus) => {
     setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
   };
 
-  // LAPORAN & EXPORT LOGIC
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportPaymentFilter, setExportPaymentFilter] = useState('ALL');
   const [showPdfReportModal, setShowPdfReportModal] = useState(false);
@@ -589,6 +624,7 @@ export default function App() {
               <th style="padding:10px;">Pelanggan</th>
               <th style="padding:10px;">Alamat / Meja</th>
               <th style="padding:10px;">Detail Rincian Pesanan</th>
+              <th style="padding:10px; text-align:right;">Diskon</th>
               <th style="padding:10px; text-align:right;">Total Tagihan</th>
             </tr>
           </thead>
@@ -600,11 +636,12 @@ export default function App() {
                 <td style="padding:8px; font-weight:bold;">${o.customerName}</td>
                 <td style="padding:8px;">${o.address}</td>
                 <td style="padding:8px;">${o.items.map(i => `${i.qty}x ${i.name} ${i.note ? '['+i.note+']' : ''}`).join(', ')}</td>
+                <td style="padding:8px; text-align:right; color:#ef4444;">${o.discountAmount ? 'Rp ' + o.discountAmount.toLocaleString('id-ID') : '-'}</td>
                 <td style="padding:8px; text-align:right; font-weight:bold; color:#10b981;">Rp ${o.total.toLocaleString('id-ID')}</td>
               </tr>
             `).join('')}
             <tr style="background-color:#f8fafc; font-weight:bold;">
-              <td colspan="5" style="padding:10px; text-align:right;">TOTAL PEMBAYARAN ${method.toUpperCase()}:</td>
+              <td colspan="6" style="padding:10px; text-align:right;">TOTAL PEMBAYARAN ${method.toUpperCase()}:</td>
               <td style="padding:10px; text-align:right; color:#10b981; font-size:14px;">Rp ${methodTotal.toLocaleString('id-ID')}</td>
             </tr>
           </tbody>
@@ -747,7 +784,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-black uppercase tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500 drop-shadow-sm whitespace-nowrap">
-              {settings.storeName || 'NAMA WARUNG (BELUM DI-SET)'}
+              {settings.storeName || 'NAMA WARUNG'}
             </h1>
             <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${t.textMuted}`}>
               <CheckCircle2 size={10} className="text-emerald-500"/> {settings.phone || 'Sistem Kasir Aktif'}
@@ -808,19 +845,49 @@ export default function App() {
         {/* TAB: POS KASIR */}
         {activeTab === 'pos' && (
           <div className="flex flex-col lg:flex-row gap-6 relative">
-            <div className="flex-1">
-              {menus.length === 0 ? (
+            <div className="flex-1 space-y-5">
+              
+              {/* TAB FILTER KATEGORI DINAMIS */}
+              {menus.length > 0 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                  <button
+                    onClick={() => setSelectedCategoryTab('Semua')}
+                    className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                      selectedCategoryTab === 'Semua' 
+                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/20' 
+                        : isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-orange-500/50' : 'bg-white border border-slate-200 text-slate-700 hover:border-orange-500/50'
+                    }`}
+                  >
+                    Semua ({menus.length})
+                  </button>
+                  {categoriesList.map(cat => {
+                    const count = menus.filter(m => m.category === cat).length;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategoryTab(cat)}
+                        className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                          selectedCategoryTab === cat 
+                            ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/20' 
+                            : isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-orange-500/50' : 'bg-white border border-slate-200 text-slate-700 hover:border-orange-500/50'
+                        }`}
+                      >
+                        {cat} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {filteredMenus.length === 0 ? (
                 <div className={`p-12 text-center rounded-3xl border flex flex-col items-center justify-center ${t.glassCard}`}>
                   <ShoppingCart size={48} className="text-orange-500 opacity-40 mb-3" />
-                  <h3 className="font-black text-lg">Katalog Menu Masih Kosong</h3>
-                  <p className="text-xs opacity-70 mt-1 max-w-sm">Aplikasi dalam kondisi Reset Pabrik. Silakan masuk ke tab <b>Setelan</b> untuk menambahkan daftar makanan & minuman.</p>
-                  <button onClick={() => setActiveTab('pengaturan')} className={`mt-5 px-6 py-2.5 rounded-xl text-xs uppercase font-bold tracking-wider ${t.btnPrimary}`}>
-                    + Tambah Menu Baru
-                  </button>
+                  <h3 className="font-black text-lg">Menu Tidak Ditemukan</h3>
+                  <p className="text-xs opacity-70 mt-1 max-w-sm">Tidak ada menu pada kategori <b>"{selectedCategoryTab}"</b>.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-                  {menus.map((menu) => (
+                  {filteredMenus.map((menu) => (
                     <div 
                       key={menu.id} 
                       onClick={() => menu.isAvailable && addToCart(menu)}
@@ -897,17 +964,17 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="pt-5 mt-5 border-t border-zinc-500/20 space-y-4">
-                  <div className="space-y-3">
+                <div className="pt-4 mt-4 border-t border-zinc-500/20 space-y-3">
+                  <div className="space-y-2.5">
                     <div>
-                      <label className="text-[10px] font-black mb-1.5 block uppercase tracking-wider text-orange-500">Nama Pemesan *</label>
-                      <input type="text" placeholder="Wajib diisi" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-3 text-sm rounded-xl border outline-none transition-all ${t.input}`} />
+                      <label className="text-[10px] font-black mb-1 block uppercase tracking-wider text-orange-500">Nama Pemesan *</label>
+                      <input type="text" placeholder="Wajib diisi" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${t.input}`} />
                     </div>
 
                     <div>
-                      <div className="flex justify-between items-center mb-1.5">
+                      <div className="flex justify-between items-center mb-1">
                         <label className="text-[10px] font-black uppercase tracking-wider opacity-70">Alamat / Meja</label>
-                        <div className="flex gap-1.5">
+                        <div className="flex gap-1">
                           {['Dine-in', 'Takeaway'].map((opt) => (
                             <button
                               key={opt}
@@ -926,23 +993,64 @@ export default function App() {
                       </div>
                       <input 
                         type="text" 
-                        placeholder="Dine-in / Takeaway / Ketik manual (Pondok, Kamar B, dll)" 
+                        placeholder="Dine-in / Takeaway / Ketik manual" 
                         value={deliveryNote} 
                         onChange={e => setDeliveryNote(e.target.value)} 
-                        className={`w-full p-3 text-sm rounded-xl border outline-none transition-all ${t.input}`} 
+                        className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${t.input}`} 
                       />
                     </div>
+
+                    {cart.length > 0 && (
+                      <div className="p-3 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-1">
+                            <Tag size={12}/> Diskon Transaksi
+                          </span>
+                          <div className="flex border rounded-lg overflow-hidden text-[9px] font-bold">
+                            <button 
+                              type="button" 
+                              onClick={() => setDiscountType('rp')}
+                              className={`px-2 py-0.5 ${discountType === 'rp' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                            >
+                              Rp
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => setDiscountType('percent')}
+                              className={`px-2 py-0.5 ${discountType === 'percent' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                            >
+                              %
+                            </button>
+                          </div>
+                        </div>
+
+                        <input 
+                          type="number" 
+                          min="0"
+                          placeholder={discountType === 'rp' ? 'Potongan Rp (Cth: 5000)' : 'Potongan % (Cth: 10)'}
+                          value={discountValue || ''}
+                          onChange={e => setDiscountValue(Number(e.target.value))}
+                          className={`w-full p-2 text-xs font-bold rounded-xl border outline-none ${t.input}`}
+                        />
+
+                        {calculatedDiscount > 0 && (
+                          <p className="text-[10px] font-bold text-red-500 text-right">
+                            Hemat: -{formatIDR(calculatedDiscount)}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
-                  <div className={`flex justify-between items-center p-4 rounded-2xl border mb-2 shadow-inner ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
-                    <span className="font-bold text-sm uppercase tracking-wider opacity-80">Total Tagihan</span>
-                    <span className="text-2xl font-black text-orange-500 drop-shadow-sm">{formatIDR(totalTagihan)}</span>
+                  <div className={`flex justify-between items-center p-3 rounded-2xl border shadow-inner ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
+                    <span className="font-bold text-xs uppercase tracking-wider opacity-80">Total Tagihan</span>
+                    <span className="text-xl font-black text-orange-500 drop-shadow-sm">{formatIDR(totalTagihan)}</span>
                   </div>
                   
                   <button 
                     disabled={cart.length === 0 || !customerName.trim()}
                     onClick={() => setShowCheckout(true)}
-                    className={`w-full py-4 rounded-2xl text-lg flex justify-center items-center gap-2 ${t.btnPrimary} disabled:opacity-50 disabled:grayscale`}
+                    className={`w-full py-3.5 rounded-2xl text-base flex justify-center items-center gap-2 ${t.btnPrimary} disabled:opacity-50 disabled:grayscale`}
                   >
                     Lanjut Pembayaran
                   </button>
@@ -1038,6 +1146,39 @@ export default function App() {
                           </div>
                         </div>
                         <input type="text" placeholder="Dine-in / Takeaway / Ketik manual" value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} className={`w-full p-3 text-sm rounded-xl border outline-none ${t.input}`} />
+                      </div>
+
+                      <div className="p-3 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-1">
+                            <Tag size={12}/> Diskon Transaksi
+                          </span>
+                          <div className="flex border rounded-lg overflow-hidden text-[9px] font-bold">
+                            <button 
+                              type="button" 
+                              onClick={() => setDiscountType('rp')}
+                              className={`px-2 py-0.5 ${discountType === 'rp' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                            >
+                              Rp
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => setDiscountType('percent')}
+                              className={`px-2 py-0.5 ${discountType === 'percent' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                            >
+                              %
+                            </button>
+                          </div>
+                        </div>
+
+                        <input 
+                          type="number" 
+                          min="0"
+                          placeholder={discountType === 'rp' ? 'Potongan Rp' : 'Potongan %'}
+                          value={discountValue || ''}
+                          onChange={e => setDiscountValue(Number(e.target.value))}
+                          className={`w-full p-2.5 text-xs font-bold rounded-xl border outline-none ${t.input}`}
+                        />
                       </div>
                     </div>
                     <button 
@@ -1188,14 +1329,15 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className={`lg:col-span-2 p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-black text-xs uppercase tracking-wider opacity-80">📈 Tren Omset (Urutan Waktu Kiri ke Kanan)</h3>
+              {/* REVISI HEIGHT CHART */}
+              <div className={`lg:col-span-2 p-6 rounded-3xl border transition-colors duration-300 flex flex-col justify-between ${t.glassCard}`}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-black text-xs uppercase tracking-wider opacity-80">📈 Tren Omset</h3>
                   <select value={reportFilter} onChange={e => setReportFilter(e.target.value)} className={`px-3 py-1 rounded-lg text-xs font-bold border outline-none ${t.input}`}>
                     <option>Harian</option><option>Mingguan</option><option>Bulanan</option>
                   </select>
                 </div>
-                <div className="h-72 w-full">
+                <div className="h-80 md:h-96 w-full flex-1">
                   <SimpleAreaChart data={chartData} isDark={isDark} />
                 </div>
               </div>
@@ -1269,6 +1411,7 @@ export default function App() {
                       <th className="py-3 px-4">No. Order / Tanggal & Waktu</th>
                       <th className="py-3 px-4">Pelanggan</th>
                       <th className="py-3 px-4">Pesanan</th>
+                      <th className="py-3 px-4">Diskon</th>
                       <th className="py-3 px-4">Metode Bayar</th>
                       <th className="py-3 px-4 text-right">Nominal</th>
                       <th className="py-3 px-4 text-center">Aksi</th>
@@ -1277,7 +1420,7 @@ export default function App() {
                   <tbody className="divide-y divide-zinc-500/10">
                     {activeOrdersForReport.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="text-center py-8 opacity-40 font-bold">
+                        <td colSpan="7" className="text-center py-8 opacity-40 font-bold">
                           Tidak ada transaksi pada periode ini
                         </td>
                       </tr>
@@ -1298,6 +1441,9 @@ export default function App() {
                             <div className="max-w-[220px] truncate">
                               {order.items.map(i => `${i.qty}x ${i.name}`).join(', ')}
                             </div>
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-red-500">
+                            {order.discountAmount ? `- ${formatIDR(order.discountAmount)}` : '-'}
                           </td>
                           <td className="py-3.5 px-4">
                             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
@@ -1345,7 +1491,6 @@ export default function App() {
               Pengaturan Sistem
             </h2>
             
-            {/* Profil Warung */}
             <div className={`p-6 md:p-8 rounded-3xl border flex flex-col md:flex-row gap-8 items-center transition-colors duration-300 ${t.glassCard}`}>
               <div className="relative group cursor-pointer" onClick={() => profilePicRef.current.click()}>
                 <img src={settings.profilePic} className="w-28 h-28 rounded-[2rem] object-cover border-4 border-orange-500 shadow-xl shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" alt="Profile"/>
@@ -1367,7 +1512,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* QRIS & Bank */}
             <div className={`p-6 md:p-8 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <h3 className="font-black mb-6 text-sm uppercase tracking-wider opacity-80 border-b border-zinc-500/20 pb-4">Info Pembayaran (QRIS & Transfer)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1392,7 +1536,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Manajemen Menu */}
             <div className={`p-6 md:p-8 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-zinc-500/20 pb-5">
                 <h3 className="font-black text-sm uppercase tracking-wider opacity-80">Manajemen Daftar Menu</h3>
@@ -1414,8 +1557,11 @@ export default function App() {
                           : (menu.image || '🍽️')}
                       </div>
                       <div>
-                        <p className="font-black text-sm mb-1">{menu.name}</p>
-                        <p className="text-sm text-orange-500 font-black">{formatIDR(menu.price)}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-black text-sm">{menu.name}</p>
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${t.badgeOrange}`}>{menu.category}</span>
+                        </div>
+                        <p className="text-sm text-orange-500 font-black mt-0.5">{formatIDR(menu.price)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 sm:gap-6">
@@ -1437,7 +1583,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* ZONA DANGER / RESET DATA OPERASIONAL */}
             <div className={`p-6 md:p-8 rounded-3xl border border-red-500/30 transition-colors duration-300 ${t.glassCard}`}>
               <h3 className="font-black mb-2 text-sm uppercase tracking-wider text-red-500 flex items-center gap-2">
                 ⚠️ Pembersihan & Reset Data Operasional
@@ -1459,7 +1604,7 @@ export default function App() {
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'factory', payload: null })}
                   className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:text-white text-red-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total (Siap Jual)</span>
+                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total </span>
                   <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data (Nama Warung, WA, Menu, Omset, QRIS dikosongkan total 100%).</span>
                 </button>
               </div>
@@ -1489,7 +1634,7 @@ export default function App() {
         ))}
       </nav>
 
-      {/* MODAL CUSTOM KONFIRMASI RESET & HAPUS */}
+      {/* MODAL RESET KONFIRMASI */}
       {resetModalConfig.isOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl relative flex flex-col p-6 text-center border transition-transform slide-in-from-bottom-6 ${t.glassPanel}`}>
@@ -1499,7 +1644,7 @@ export default function App() {
 
             <h3 className="text-lg font-black uppercase tracking-wide text-red-500 mb-2">
               {resetModalConfig.type === 'factory' 
-                ? 'Konfirmasi Reset Total (Siap Jual)' 
+                ? 'Konfirmasi Reset Total' 
                 : resetModalConfig.type === 'transactions'
                 ? 'Clear Semua Transaksi?'
                 : `Hapus Order ${resetModalConfig.payload?.id}?`}
@@ -1551,18 +1696,54 @@ export default function App() {
                 <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">Nama Menu</label>
                 <input type="text" value={menuForm.name} onChange={e => setMenuForm({...menuForm, name: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`} placeholder="Cth: Ayam Geprek" />
               </div>
+              
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">Harga (Rp)</label>
                   <input type="number" value={menuForm.price} onChange={e => setMenuForm({...menuForm, price: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`} />
                 </div>
+                
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">Kategori</label>
-                  <select value={menuForm.category} onChange={e => setMenuForm({...menuForm, category: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`}>
-                    <option>Makanan</option><option>Minuman</option><option>Tambahan</option>
-                  </select>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-70">Kategori</label>
+                    <button 
+                      type="button"
+                      onClick={() => setIsCustomCategoryMode(!isCustomCategoryMode)}
+                      className="text-[9px] font-bold text-orange-500 hover:underline"
+                    >
+                      {isCustomCategoryMode ? 'Pilih Dropdown' : '+ Ketik Baru'}
+                    </button>
+                  </div>
+
+                  {isCustomCategoryMode ? (
+                    <input 
+                      type="text"
+                      placeholder="Kategori baru..."
+                      value={customCategoryInput}
+                      onChange={e => setCustomCategoryInput(e.target.value)}
+                      className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`}
+                    />
+                  ) : (
+                    <select 
+                      value={menuForm.category} 
+                      onChange={e => {
+                        if (e.target.value === 'NEW') {
+                          setIsCustomCategoryMode(true);
+                        } else {
+                          setMenuForm({...menuForm, category: e.target.value});
+                        }
+                      }} 
+                      className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`}
+                    >
+                      {categoriesList.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                      <option value="NEW">+ Tambah Kategori Baru...</option>
+                    </select>
+                  )}
                 </div>
               </div>
+
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">Gambar (Upload / Emoji)</label>
                 <div className="flex gap-3 items-center">
@@ -1603,7 +1784,17 @@ export default function App() {
               <div className={`p-5 rounded-3xl mb-6 text-center border shadow-inner flex flex-col gap-1 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
                 <p className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Tagihan: <span className={t.text}>{customerName}</span></p>
                 <h3 className="text-4xl font-black text-orange-500 mt-2 drop-shadow-sm">{formatIDR(totalTagihan)}</h3>
-                {extraCharge > 0 && <p className="text-[10px] text-red-500 font-black mt-2 bg-red-500/10 self-center px-3 py-1 rounded-full">+ Biaya Tambahan {formatIDR(extraCharge)}</p>}
+                
+                {calculatedDiscount > 0 && (
+                  <p className="text-[10px] text-emerald-500 font-black mt-1 bg-emerald-500/10 self-center px-3 py-1 rounded-full">
+                    Termasuk Diskon -{formatIDR(calculatedDiscount)}
+                  </p>
+                )}
+                {extraCharge > 0 && (
+                  <p className="text-[10px] text-red-500 font-black mt-1 bg-red-500/10 self-center px-3 py-1 rounded-full">
+                    + Biaya Tambahan {formatIDR(extraCharge)}
+                  </p>
+                )}
               </div>
 
               <label className="text-[10px] font-black uppercase tracking-widest mb-3 block opacity-70">Metode Pembayaran</label>
@@ -1727,11 +1918,19 @@ export default function App() {
               <div className="flex justify-between">
                 <span>Subtotal</span><span>{formatIDR(currentOrderReceipt.subTotal)}</span>
               </div>
+              
+              {currentOrderReceipt.discountAmount > 0 && (
+                <div className="flex justify-between font-bold text-red-600">
+                  <span>Diskon</span><span>-{formatIDR(currentOrderReceipt.discountAmount)}</span>
+                </div>
+              )}
+
               {currentOrderReceipt.extraCharge > 0 && (
                 <div className="flex justify-between">
                   <span>Biaya Tambahan</span><span>{formatIDR(currentOrderReceipt.extraCharge)}</span>
                 </div>
               )}
+              
               <div className="flex justify-between font-black text-sm mt-3 pt-3 border-t border-gray-300">
                 <span>TOTAL</span><span>{formatIDR(currentOrderReceipt.total)}</span>
               </div>
@@ -1854,7 +2053,7 @@ export default function App() {
 
             <div className="grid grid-cols-3 gap-4 mb-8">
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <p className="text-[10px] font-bold text-emerald-700 uppercase">Total Omset</p>
+                <p className="text-[10px] font-bold text-emerald-700 uppercase">Total Omset Net</p>
                 <p className="text-xl font-black text-emerald-600">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</p>
               </div>
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
@@ -1885,7 +2084,8 @@ export default function App() {
                         <th className="p-2.5">Tanggal & Waktu</th>
                         <th className="p-2.5">Pelanggan</th>
                         <th className="p-2.5">Rincian Item</th>
-                        <th className="p-2.5 text-right">Total</th>
+                        <th className="p-2.5 text-right">Diskon</th>
+                        <th className="p-2.5 text-right">Total Net</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
@@ -1895,6 +2095,7 @@ export default function App() {
                           <td className="p-2.5 text-[10px] text-slate-500">{new Date(o.date).toLocaleDateString('id-ID')} {new Date(o.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
                           <td className="p-2.5 font-bold">{o.customerName} <span className="font-normal text-slate-500">({o.address})</span></td>
                           <td className="p-2.5 text-[11px]">{o.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</td>
+                          <td className="p-2.5 text-right text-red-600">{o.discountAmount ? `- ${formatIDR(o.discountAmount)}` : '-'}</td>
                           <td className="p-2.5 text-right font-bold text-emerald-600">{formatIDR(o.total)}</td>
                         </tr>
                       ))}
@@ -1918,7 +2119,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Custom Scrollbar Styles */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
