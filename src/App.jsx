@@ -4,10 +4,11 @@ import {
   Trash2, Printer, ChefHat, Image as ImageIcon, Download, 
   CreditCard, X, MapPin, ChevronUp, Edit3, CheckCircle2,
   Clock, TrendingUp, Calendar, Bluetooth, Smartphone, RefreshCw,
-  AlertTriangle, ShieldAlert, Tag, Percent
+  AlertTriangle, ShieldAlert, Tag, Wifi
 } from 'lucide-react';
+import { supabase } from './supabase';
 
-// --- NATIVE SVG AREA CHART (REVISI: SKALA DINAMIS & FULL HEIGHT) ---
+// --- NATIVE SVG AREA CHART (SKALA DINAMIS & FULL HEIGHT) ---
 const SimpleAreaChart = ({ data, isDark }) => {
   if (!data || data.length === 0) return null;
 
@@ -113,11 +114,158 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('pos');
   const [isReady, setIsReady] = useState(false);
 
+  // --- STATE REALTIME CLOUD SUPABASE ---
+  const [menus, setMenus] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [categoriesList, setCategoriesList] = useState(['Makanan', 'Minuman', 'Tambahan']);
+  const [settings, setSettings] = useState({
+    storeName: 'Warung Cobek Geprek',
+    phone: '0812-3456-7890',
+    profilePic: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=150&q=80',
+    qrisPic: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg',
+    bankName: 'BCA',
+    bankAccount: '1234567890 a/n Bapak Geprek'
+  });
+
+  // INITIAL FETCH & REALTIME LISTENERS
+  useEffect(() => {
+    setIsReady(true);
+    fetchSettings();
+    fetchCategories();
+    fetchMenus();
+    fetchOrders();
+
+    // REALTIME ORDERS (SINKRONISASI KASIR LAPTOP <-> DAPUR HP)
+    const ordersSubscription = supabase
+      .channel('public:orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newOrd = {
+            id: payload.new.id,
+            date: payload.new.date,
+            customerName: payload.new.customer_name,
+            address: payload.new.address,
+            items: payload.new.items,
+            subTotal: Number(payload.new.sub_total),
+            discountAmount: Number(payload.new.discount_amount),
+            extraCharge: Number(payload.new.extra_charge),
+            total: Number(payload.new.total),
+            method: payload.new.method,
+            cashGiven: Number(payload.new.cash_given),
+            kembalian: Number(payload.new.kembalian),
+            status: payload.new.status
+          };
+          setOrders(prev => [newOrd, ...prev.filter(o => o.id !== newOrd.id)]);
+        } else if (payload.eventType === 'UPDATE') {
+          setOrders(prev => prev.map(o => o.id === payload.new.id ? {
+            ...o,
+            customerName: payload.new.customer_name,
+            address: payload.new.address,
+            items: payload.new.items,
+            subTotal: Number(payload.new.sub_total),
+            discountAmount: Number(payload.new.discount_amount),
+            extraCharge: Number(payload.new.extra_charge),
+            total: Number(payload.new.total),
+            method: payload.new.method,
+            cashGiven: Number(payload.new.cash_given),
+            kembalian: Number(payload.new.kembalian),
+            status: payload.new.status
+          } : o));
+        } else if (payload.eventType === 'DELETE') {
+          setOrders(prev => prev.filter(o => o.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    // REALTIME MENUS
+    const menusSubscription = supabase
+      .channel('public:menus')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menus' }, () => {
+        fetchMenus();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ordersSubscription);
+      supabase.removeChannel(menusSubscription);
+    };
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data } = await supabase.from('settings').select('*').single();
+      if (data) {
+        setSettings({
+          storeName: data.store_name || 'Warung Cobek Geprek',
+          phone: data.phone || '',
+          profilePic: data.profile_pic || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=150&q=80',
+          qrisPic: data.qris_pic || '',
+          bankName: data.bank_name || '',
+          bankAccount: data.bank_account || ''
+        });
+      }
+    } catch (e) {}
+  };
+
+  const fetchCategories = async () => {
+    const { data } = await supabase.from('categories').select('name');
+    if (data && data.length > 0) {
+      setCategoriesList(data.map(c => c.name));
+    }
+  };
+
+  const fetchMenus = async () => {
+    const { data } = await supabase.from('menus').select('*').order('id', { ascending: true });
+    if (data) {
+      setMenus(data.map(m => ({
+        id: m.id,
+        name: m.name,
+        price: Number(m.price),
+        category: m.category,
+        image: m.image,
+        isAvailable: m.is_available
+      })));
+    }
+  };
+
+  const fetchOrders = async () => {
+    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+    if (data) {
+      setOrders(data.map(o => ({
+        id: o.id,
+        date: o.date,
+        customerName: o.customer_name,
+        address: o.address,
+        items: o.items,
+        subTotal: Number(o.sub_total),
+        discountAmount: Number(o.discount_amount),
+        extraCharge: Number(o.extra_charge),
+        total: Number(o.total),
+        method: o.method,
+        cashGiven: Number(o.cash_given),
+        kembalian: Number(o.kembalian),
+        status: o.status
+      })));
+    }
+  };
+
+  const saveSettingsToCloud = async (newSettings) => {
+    setSettings(newSettings);
+    await supabase.from('settings').upsert({
+      id: 1,
+      store_name: newSettings.storeName,
+      phone: newSettings.phone,
+      profile_pic: newSettings.profilePic,
+      qris_pic: newSettings.qrisPic,
+      bank_name: newSettings.bankName,
+      bank_account: newSettings.bankAccount
+    });
+  };
+
   // --- STATE: PWA INSTALL PROMPT ---
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
-    setIsReady(true);
     const handleBeforeInstall = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -142,14 +290,14 @@ export default function App() {
 
   const formatIDR = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
 
-  // --- STATE & KONEKSI BLUETOOTH THERMAL PRINTER ---
+  // --- THERMAL BLUETOOTH PRINTER ---
   const [btDevice, setBtDevice] = useState(null);
   const [btPrintChar, setBtPrintChar] = useState(null);
   const [btStatus, setBtStatus] = useState('Terputus');
 
   const connectBluetoothPrinter = async () => {
     if (!navigator.bluetooth) {
-      alert('Browser Anda belum mendukung Web Bluetooth API. Gunakan Google Chrome di Android dan aktifkan Bluetooth + Lokasi (GPS).');
+      alert('Browser Anda belum mendukung Web Bluetooth API.');
       return null;
     }
 
@@ -160,7 +308,6 @@ export default function App() {
 
     try {
       setBtStatus('Menghubungkan...');
-      
       let device = btDevice;
       if (!device || !device.gatt.connected) {
         device = await navigator.bluetooth.requestDevice({
@@ -203,7 +350,6 @@ export default function App() {
         return null;
       }
     } catch (err) {
-      console.error(err);
       setBtStatus('Terputus');
       return null;
     }
@@ -211,25 +357,18 @@ export default function App() {
 
   const printViaBluetooth = async (orderReceipt) => {
     let char = btPrintChar;
-
     if (!char || !btDevice?.gatt?.connected) {
       char = await connectBluetoothPrinter();
     }
 
     if (!char) {
-      await new Promise(r => setTimeout(r, 600));
-      char = await connectBluetoothPrinter();
-    }
-
-    if (!char) {
-      alert('Koneksi Bluetooth Printer belum siap. Mengalihkan ke Cetak Sistem Windows/Android...');
+      alert('Koneksi Bluetooth Printer belum siap. Mengalihkan ke Cetak Standar...');
       window.print();
       return;
     }
 
     try {
       const encoder = new TextEncoder();
-      
       const init = '\x1B\x40';
       const setCodePage = '\x1B\x74\x00';
       const center = '\x1B\x61\x01';
@@ -279,60 +418,11 @@ export default function App() {
         }
       }
     } catch (e) {
-      console.error(e);
-      alert('Cetak Bluetooth Gagal: ' + e.message + '. Mengalihkan ke Cetak Standar...');
       window.print();
     }
   };
 
-  const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('cgb_settings');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return {
-      storeName: 'Warung Cobek Geprek',
-      phone: '0812-3456-7890',
-      profilePic: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=150&q=80',
-      qrisPic: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg',
-      bankName: 'BCA',
-      bankAccount: '1234567890 a/n Bapak Geprek'
-    };
-  });
-
-  useEffect(() => {
-    localStorage.setItem('cgb_settings', JSON.stringify(settings));
-  }, [settings]);
-
-  const [menus, setMenus] = useState(() => {
-    const saved = localStorage.getItem('cgb_menus');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return [
-      { id: 1, name: 'Ayam Geprek Cobek Batu', price: 15000, category: 'Makanan', image: '🍗', isAvailable: true },
-      { id: 2, name: 'Ayam Geprek Bakar', price: 18000, category: 'Makanan', image: '🔥', isAvailable: true },
-      { id: 3, name: 'Indomie Geprek', price: 12000, category: 'Makanan', image: '🍜', isAvailable: true },
-      { id: 4, name: 'Es Teh Manis', price: 4000, category: 'Minuman', image: '🍹', isAvailable: true },
-      { id: 5, name: 'Kol Goreng', price: 5000, category: 'Tambahan', image: '🥬', isAvailable: true },
-      { id: 6, name: 'Tahu / Tempe', price: 2000, category: 'Tambahan', image: '🧆', isAvailable: false },
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('cgb_menus', JSON.stringify(menus));
-  }, [menus]);
-
-  const categoriesList = useMemo(() => {
-    const setCat = new Set(['Makanan', 'Minuman', 'Tambahan']);
-    menus.forEach(m => {
-      if (m.category) setCat.add(m.category);
-    });
-    return Array.from(setCat);
-  }, [menus]);
-
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('Semua');
-
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [editingMenu, setEditingMenu] = useState(null);
   const [menuForm, setMenuForm] = useState({ name: '', price: '', category: 'Makanan', image: '🍽️', isAvailable: true });
@@ -355,32 +445,16 @@ export default function App() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [currentOrderReceipt, setCurrentOrderReceipt] = useState(null);
 
-  const [orders, setOrders] = useState(() => {
-    const saved = localStorage.getItem('cgb_orders');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return [
-      { id: 'ORD-1001', date: new Date(2026, 10, 4, 12, 42).toISOString(), customerName: 'Zahwa', address: 'Dine-in', items: [{name: 'Ayam Geprek Cobek Batu', qty: 2, price: 15000}], subTotal: 30000, discountAmount: 0, extraCharge: 0, total: 30000, method: 'Tunai', status: 'Selesai' },
-      { id: 'ORD-1002', date: new Date(2026, 10, 4, 14, 42).toISOString(), customerName: 'Santri Putra', address: 'Kamar B', items: [{name: 'Indomie Geprek', qty: 3, price: 12000, note: 'Pedas mampus'}], subTotal: 36000, discountAmount: 0, extraCharge: 2000, total: 38000, method: 'QRIS', status: 'Dimasak' },
-      { id: 'ORD-1003', date: new Date(2026, 10, 4, 16, 12).toISOString(), customerName: 'Budi', address: 'Takeaway', items: [{name: 'Ayam Geprek Bakar', qty: 1, price: 18000}, {name: 'Es Teh Manis', qty: 1, price: 4000}], subTotal: 22000, discountAmount: 2000, extraCharge: 0, total: 20000, method: 'Transfer', status: 'Masuk' }
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('cgb_orders', JSON.stringify(orders));
-  }, [orders]);
-
   const [resetModalConfig, setResetModalConfig] = useState({ isOpen: false, type: '', payload: null });
 
-  const executeClearTransactions = () => {
+  const executeClearTransactions = async () => {
+    await supabase.from('orders').delete().neq('id', '');
     setOrders([]);
     setCart([]);
-    localStorage.setItem('cgb_orders', JSON.stringify([]));
     setResetModalConfig({ isOpen: false, type: '', payload: null });
   };
 
-  const executeFactoryReset = () => {
+  const executeFactoryReset = async () => {
     const emptySettings = {
       storeName: '',
       phone: '',
@@ -389,27 +463,24 @@ export default function App() {
       bankName: '',
       bankAccount: ''
     };
+    await supabase.from('orders').delete().neq('id', '');
+    await supabase.from('menus').delete().neq('id', 0);
+    await saveSettingsToCloud(emptySettings);
+
     setOrders([]);
     setMenus([]);
     setCart([]);
-    setSettings(emptySettings);
-
-    localStorage.setItem('cgb_orders', JSON.stringify([]));
-    localStorage.setItem('cgb_menus', JSON.stringify([]));
-    localStorage.setItem('cgb_settings', JSON.stringify(emptySettings));
     setResetModalConfig({ isOpen: false, type: '', payload: null });
   };
 
-  const executeDeleteSingleOrder = (orderId) => {
-    const updated = orders.filter(o => o.id !== orderId);
-    setOrders(updated);
-    localStorage.setItem('cgb_orders', JSON.stringify(updated));
+  const executeDeleteSingleOrder = async (orderId) => {
+    await supabase.from('orders').delete().eq('id', orderId);
+    setOrders(orders.filter(o => o.id !== orderId));
     setResetModalConfig({ isOpen: false, type: '', payload: null });
   };
 
   const [reportFilter, setReportFilter] = useState('Harian');
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState('ALL');
-  
   const [selectedYearFilter, setSelectedYearFilter] = useState('ALL');
   const [selectedMonthFilter, setSelectedMonthFilter] = useState('ALL');
 
@@ -492,7 +563,7 @@ export default function App() {
   const kembalian = cashGiven - totalTagihan;
   const isCashSufficient = paymentMethod !== 'Tunai' || cashGiven >= totalTagihan;
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (isCashSufficient && customerName.trim() !== '') {
       const nextNum = orders.reduce((max, o) => {
         const num = parseInt(o.id.replace(/[^0-9]/g, ''), 10);
@@ -515,10 +586,29 @@ export default function App() {
         status: 'Masuk' 
       };
       
-      setOrders([newOrder, ...orders]);
-      setCurrentOrderReceipt(newOrder);
-      setShowCheckout(false);
-      setShowReceipt(true);
+      const { error } = await supabase.from('orders').insert({
+        id: newOrder.id,
+        date: newOrder.date,
+        customer_name: newOrder.customerName,
+        address: newOrder.address,
+        items: newOrder.items,
+        sub_total: newOrder.subTotal,
+        discount_amount: newOrder.discountAmount,
+        extra_charge: newOrder.extraCharge,
+        total: newOrder.total,
+        method: newOrder.method,
+        cash_given: newOrder.cashGiven,
+        kembalian: newOrder.kembalian,
+        status: newOrder.status
+      });
+
+      if (!error) {
+        setCurrentOrderReceipt(newOrder);
+        setShowCheckout(false);
+        setShowReceipt(true);
+      } else {
+        alert('Gagal menyimpan ke Supabase: ' + error.message);
+      }
     }
   };
 
@@ -549,27 +639,47 @@ export default function App() {
     setShowMenuModal(true);
   };
 
-  const handleSaveMenu = () => {
+  const handleSaveMenu = async () => {
     if (!menuForm.name || !menuForm.price) return;
     
-    const finalCategory = isCustomCategoryMode && customCategoryInput.trim() 
-      ? customCategoryInput.trim() 
-      : menuForm.category;
+    let finalCategory = menuForm.category;
+    if (isCustomCategoryMode && customCategoryInput.trim()) {
+      finalCategory = customCategoryInput.trim();
+      await supabase.from('categories').insert({ name: finalCategory });
+      fetchCategories();
+    }
 
     if (editingMenu) {
-      setMenus(menus.map(m => m.id === editingMenu.id ? { ...menuForm, category: finalCategory, id: m.id, price: Number(menuForm.price) } : m));
+      await supabase.from('menus').update({
+        name: menuForm.name,
+        price: Number(menuForm.price),
+        category: finalCategory,
+        image: menuForm.image,
+        is_available: menuForm.isAvailable
+      }).eq('id', editingMenu.id);
     } else {
-      setMenus([...menus, { ...menuForm, category: finalCategory, id: Date.now(), price: Number(menuForm.price) }]);
+      await supabase.from('menus').insert({
+        id: Date.now(),
+        name: menuForm.name,
+        price: Number(menuForm.price),
+        category: finalCategory,
+        image: menuForm.image,
+        is_available: menuForm.isAvailable
+      });
     }
+
+    fetchMenus();
     setShowMenuModal(false);
   };
 
-  const handleDeleteMenu = (id) => {
-    setMenus(menus.filter(m => m.id !== id));
+  const handleDeleteMenu = async (id) => {
+    await supabase.from('menus').delete().eq('id', id);
+    fetchMenus();
   };
 
-  const toggleMenuAvailability = (id) => {
-    setMenus(menus.map(m => m.id === id ? { ...m, isAvailable: !m.isAvailable } : m));
+  const toggleMenuAvailability = async (id, currentStatus) => {
+    await supabase.from('menus').update({ is_available: !currentStatus }).eq('id', id);
+    fetchMenus();
   };
 
   const handleImageUpload = (e, callback) => {
@@ -588,8 +698,8 @@ export default function App() {
     return menus.filter(m => m.category === selectedCategoryTab);
   }, [menus, selectedCategoryTab]);
 
-  const updateOrderStatus = (id, newStatus) => {
-    setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
+  const updateOrderStatus = async (id, newStatus) => {
+    await supabase.from('orders').update({ status: newStatus }).eq('id', id);
   };
 
   const [showExportModal, setShowExportModal] = useState(false);
@@ -780,14 +890,14 @@ export default function App() {
             <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                <Edit3 size={16} className="text-white"/>
             </div>
-            <input type="file" ref={profilePicRef} onChange={e => handleImageUpload(e, url => setSettings({...settings, profilePic: url}))} accept="image/*" className="hidden" />
+            <input type="file" ref={profilePicRef} onChange={e => handleImageUpload(e, url => saveSettingsToCloud({...settings, profilePic: url}))} accept="image/*" className="hidden" />
           </div>
           <div>
             <h1 className="text-lg md:text-xl font-black uppercase tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500 drop-shadow-sm whitespace-nowrap">
               {settings.storeName || 'NAMA WARUNG'}
             </h1>
             <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${t.textMuted}`}>
-              <CheckCircle2 size={10} className="text-emerald-500"/> {settings.phone || 'Sistem Kasir Aktif'}
+              <Wifi size={10} className="text-emerald-500"/> Realtime Cloud Active
             </p>
           </div>
         </div>
@@ -1196,12 +1306,12 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: DAPUR (KDS) */}
+        {/* TAB: DAPUR (KDS REALTIME) */}
         {activeTab === 'dapur' && (
           <div className="animate-in fade-in h-full">
             <h2 className="text-2xl font-black mb-6 flex items-center gap-3">
               <div className="p-2.5 bg-orange-500/10 rounded-2xl"><ChefHat className="text-orange-500" size={28}/></div>
-              Kanban Dapur
+              Kanban Dapur (Realtime Cloud Sync)
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {['Masuk', 'Dimasak', 'Selesai'].map(statusFilter => (
@@ -1265,7 +1375,7 @@ export default function App() {
               <div>
                 <h2 className="text-2xl font-black flex items-center gap-3">
                   <div className="p-2.5 bg-orange-500/10 rounded-2xl"><TrendingUp className="text-orange-500" size={28}/></div>
-                  Dashboard Laporan
+                  Dashboard Laporan (Realtime Cloud)
                 </h2>
               </div>
 
@@ -1329,7 +1439,6 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* REVISI HEIGHT CHART */}
               <div className={`lg:col-span-2 p-6 rounded-3xl border transition-colors duration-300 flex flex-col justify-between ${t.glassCard}`}>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-black text-xs uppercase tracking-wider opacity-80">📈 Tren Omset</h3>
@@ -1488,7 +1597,7 @@ export default function App() {
           <div className="animate-in fade-in max-w-5xl mx-auto space-y-8">
             <h2 className="text-2xl font-black flex items-center gap-3">
               <div className="p-2.5 bg-orange-500/10 rounded-2xl"><Settings className="text-orange-500" size={28}/></div>
-              Pengaturan Sistem
+              Pengaturan Sistem (Cloud Supabase)
             </h2>
             
             <div className={`p-6 md:p-8 rounded-3xl border flex flex-col md:flex-row gap-8 items-center transition-colors duration-300 ${t.glassCard}`}>
@@ -1498,16 +1607,16 @@ export default function App() {
                   <ImageIcon size={24} className="mb-1" />
                   <span className="text-[10px] font-black uppercase tracking-wider">Ubah Foto</span>
                 </div>
-                <input type="file" ref={profilePicRef} onChange={e => handleImageUpload(e, url => setSettings({...settings, profilePic: url}))} accept="image/*" className="hidden" />
+                <input type="file" ref={profilePicRef} onChange={e => handleImageUpload(e, url => saveSettingsToCloud({...settings, profilePic: url}))} accept="image/*" className="hidden" />
               </div>
               <div className="flex-1 w-full space-y-4">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-orange-500 block mb-1">Nama Usaha / Warung</label>
-                  <input type="text" value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none text-lg font-black transition-all ${t.input}`} />
+                  <input type="text" value={settings.storeName} onChange={e => saveSettingsToCloud({...settings, storeName: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none text-lg font-black transition-all ${t.input}`} />
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-orange-500 block mb-1">No. Telepon / WA Admin (Ditampilkan di Struk)</label>
-                  <input type="text" value={settings.phone || ''} onChange={e => setSettings({...settings, phone: e.target.value})} placeholder="Cth: 0812-3456-7890" className={`w-full p-3.5 rounded-2xl border outline-none text-sm font-bold transition-all ${t.input}`} />
+                  <input type="text" value={settings.phone || ''} onChange={e => saveSettingsToCloud({...settings, phone: e.target.value})} placeholder="Cth: 0812-3456-7890" className={`w-full p-3.5 rounded-2xl border outline-none text-sm font-bold transition-all ${t.input}`} />
                 </div>
               </div>
             </div>
@@ -1518,19 +1627,23 @@ export default function App() {
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">Upload Gambar QRIS (Galeri Lokal)</label>
                   <div className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all hover:border-orange-500 flex flex-col items-center justify-center h-56 ${isDark ? 'border-zinc-700 bg-zinc-950/50' : 'border-slate-300 bg-slate-50'}`} onClick={() => qrisPicRef.current.click()}>
-                    <img src={settings.qrisPic} className="max-h-32 object-contain mb-4 rounded-xl bg-white p-2 shadow-sm" alt="QRIS" />
+                    {settings.qrisPic ? (
+                      <img src={settings.qrisPic} className="max-h-32 object-contain mb-4 rounded-xl bg-white p-2 shadow-sm" alt="QRIS" />
+                    ) : (
+                      <div className="text-zinc-500 mb-2">Belum ada QRIS</div>
+                    )}
                     <span className={`text-[10px] font-black uppercase tracking-wider px-4 py-1.5 rounded-full ${t.badgeOrange}`}>Klik Ganti QRIS</span>
-                    <input type="file" ref={qrisPicRef} onChange={e => handleImageUpload(e, url => setSettings({...settings, qrisPic: url}))} accept="image/*" className="hidden" />
+                    <input type="file" ref={qrisPicRef} onChange={e => handleImageUpload(e, url => saveSettingsToCloud({...settings, qrisPic: url}))} accept="image/*" className="hidden" />
                   </div>
                 </div>
                 <div className="space-y-5 flex flex-col justify-center">
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">Nama Bank (Cth: BCA)</label>
-                    <input type="text" value={settings.bankName} onChange={e => setSettings({...settings, bankName: e.target.value})} className={`w-full p-4 rounded-2xl border outline-none transition-all ${t.input}`} />
+                    <input type="text" value={settings.bankName} onChange={e => saveSettingsToCloud({...settings, bankName: e.target.value})} className={`w-full p-4 rounded-2xl border outline-none transition-all ${t.input}`} />
                   </div>
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">No. Rekening & Atas Nama</label>
-                    <input type="text" value={settings.bankAccount} onChange={e => setSettings({...settings, bankAccount: e.target.value})} className={`w-full p-4 rounded-2xl border outline-none transition-all ${t.input}`} />
+                    <input type="text" value={settings.bankAccount} onChange={e => saveSettingsToCloud({...settings, bankAccount: e.target.value})} className={`w-full p-4 rounded-2xl border outline-none transition-all ${t.input}`} />
                   </div>
                 </div>
               </div>
@@ -1566,7 +1679,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-4 sm:gap-6">
                       <button 
-                        onClick={() => toggleMenuAvailability(menu.id)}
+                        onClick={() => toggleMenuAvailability(menu.id, menu.isAvailable)}
                         className={`w-14 h-7 rounded-full p-1 transition-colors relative flex-shrink-0 shadow-inner ${menu.isAvailable ? 'bg-emerald-500' : isDark ? 'bg-zinc-700' : 'bg-slate-300'}`}
                       >
                         <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform absolute top-1 ${menu.isAvailable ? 'left-8' : 'left-1'}`}/>
@@ -1585,10 +1698,10 @@ export default function App() {
 
             <div className={`p-6 md:p-8 rounded-3xl border border-red-500/30 transition-colors duration-300 ${t.glassCard}`}>
               <h3 className="font-black mb-2 text-sm uppercase tracking-wider text-red-500 flex items-center gap-2">
-                ⚠️ Pembersihan & Reset Data Operasional
+                ⚠️ Pembersihan & Reset Data Cloud
               </h3>
               <p className={`text-xs mb-6 ${t.textMuted}`}>
-                Gunakan fitur ini jika ingin memulai operasional warung dari 0 atau jika ingin menjual/menyerahkan aplikasi ke pemilik warung baru.
+                Gunakan fitur ini jika ingin memulai operasional warung dari 0 atau jika ingin menyerahkan aplikasi ke pemilik baru.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1596,16 +1709,16 @@ export default function App() {
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'transactions', payload: null })}
                   className="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500 hover:text-white text-orange-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><RefreshCw size={16}/> Clear Riwayat Transaksi & Omset</span>
-                  <span className="text-[10px] opacity-80 mt-2">Menghapus nota kasir & laporan keuangan (Omset jadi Rp 0). Katalog menu & profil warung tetap aman.</span>
+                  <span className="font-black text-sm mb-1 flex items-center gap-2"><RefreshCw size={16}/> Clear Riwayat Transaksi Cloud</span>
+                  <span className="text-[10px] opacity-80 mt-2">Menghapus nota kasir & laporan di Supabase (Omset jadi Rp 0). Katalog menu & profil warung tetap aman.</span>
                 </button>
 
                 <button
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'factory', payload: null })}
                   className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:text-white text-red-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total </span>
-                  <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data (Nama Warung, WA, Menu, Omset, QRIS dikosongkan total 100%).</span>
+                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total (Siap Jual)</span>
+                  <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data cloud (Nama Warung, WA, Menu, Omset dikosongkan total 100%).</span>
                 </button>
               </div>
             </div>
@@ -1644,18 +1757,18 @@ export default function App() {
 
             <h3 className="text-lg font-black uppercase tracking-wide text-red-500 mb-2">
               {resetModalConfig.type === 'factory' 
-                ? 'Konfirmasi Reset Total' 
+                ? 'Konfirmasi Reset Total Cloud' 
                 : resetModalConfig.type === 'transactions'
-                ? 'Clear Semua Transaksi?'
+                ? 'Clear Semua Transaksi Cloud?'
                 : `Hapus Order ${resetModalConfig.payload?.id}?`}
             </h3>
 
             <p className={`text-xs mb-6 leading-relaxed ${t.textMuted}`}>
               {resetModalConfig.type === 'factory' 
-                ? 'Tindakan ini akan MENGHAPUS SEMUA DATA: Nama Warung, Kontak WA, QRIS, Katalog Menu, serta Laporan Omset dikosongkan total dari 0.'
+                ? 'Tindakan ini akan MENGHAPUS SEMUA DATA CLOUD SUPABASE: Profil Warung, Katalog Menu, dan Omset dikosongkan total.'
                 : resetModalConfig.type === 'transactions'
-                ? 'Semua riwayat pesanan & laporan keuangan akan dihapus menjadi Rp 0. Katalog Menu & Setelan Warung tetap aman.'
-                : `Nota pesanan ${resetModalConfig.payload?.id} atas nama "${resetModalConfig.payload?.customerName}" (${formatIDR(resetModalConfig.payload?.total || 0)}) akan dihapus permanen dari laporan.`}
+                ? 'Semua riwayat pesanan & laporan keuangan di Supabase akan dihapus. Katalog Menu tetap aman.'
+                : `Nota pesanan ${resetModalConfig.payload?.id} atas nama "${resetModalConfig.payload?.customerName}" (${formatIDR(resetModalConfig.payload?.total || 0)}) akan dihapus permanen.`}
             </p>
 
             <div className="flex gap-3">
@@ -1757,7 +1870,7 @@ export default function App() {
                   </div>
                   <input type="file" ref={menuImageRef} onChange={e => handleImageUpload(e, url => setMenuForm({...menuForm, image: url}))} accept="image/*" className="hidden" />
                   <div className="flex-1">
-                    <input type="text" value={typeof menuForm.image === 'string' ? menuForm.image : ''} onChange={e => setMenuForm({...menuForm, image: e.target.value})} className={`w-full p-3 rounded-2xl border outline-none text-xs ${t.input}`} placeholder="Ketik emoji 🍗 atau klik gambar kiri" />
+                    <input type="text" value={typeof menuForm.image === 'string' ? menuForm.image : ''} onChange={e => setMenuForm({...menuForm, image: e.target.value})} className={`w-full p-3 rounded-2xl border outline-none text-xs ${t.input}`} placeholder="Ketik emoji 🍗 atau upload foto" />
                   </div>
                 </div>
               </div>
@@ -1849,15 +1962,19 @@ export default function App() {
               ) : paymentMethod === 'QRIS' ? (
                  <div className="animate-in slide-in-from-bottom-4 flex flex-col items-center justify-center p-4">
                     <div className="bg-white p-3 rounded-3xl shadow-xl shadow-orange-500/20 border-4 border-orange-500 mb-4">
-                      <img src={settings.qrisPic} className="w-48 h-48 object-contain rounded-xl" alt="QRIS" />
+                      {settings.qrisPic ? (
+                        <img src={settings.qrisPic} className="w-48 h-48 object-contain rounded-xl" alt="QRIS" />
+                      ) : (
+                        <div className="w-48 h-48 flex items-center justify-center text-xs font-bold text-gray-500">QRIS Belum Di-set</div>
+                      )}
                     </div>
                     <p className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted} animate-pulse`}>Silakan pelanggan scan QRIS</p>
                  </div>
               ) : (
                  <div className="animate-in slide-in-from-bottom-4 bg-blue-500/10 border border-blue-500/20 p-6 rounded-3xl text-center shadow-inner">
                     <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-3 opacity-80">Transfer ke Rekening:</p>
-                    <p className="text-3xl font-black text-blue-500 mb-2 drop-shadow-sm">{settings.bankName}</p>
-                    <p className="text-xl font-black text-white bg-blue-500 px-5 py-2.5 rounded-2xl inline-block shadow-md select-all">{settings.bankAccount}</p>
+                    <p className="text-3xl font-black text-blue-500 mb-2 drop-shadow-sm">{settings.bankName || 'BCA'}</p>
+                    <p className="text-xl font-black text-white bg-blue-500 px-5 py-2.5 rounded-2xl inline-block shadow-md select-all">{settings.bankAccount || '-'}</p>
                  </div>
               )}
             </div>
@@ -1868,7 +1985,7 @@ export default function App() {
                 disabled={!isCashSufficient}
                 className={`w-full py-4 rounded-2xl text-lg flex items-center justify-center gap-2 uppercase tracking-wider ${t.btnSuccess} disabled:opacity-50 disabled:grayscale`}
               >
-                <Printer size={20} /> Konfirmasi Bayar
+                <Printer size={20} /> Konfirmasi Bayar & Sync Cloud
               </button>
             </div>
           </div>
@@ -2107,7 +2224,7 @@ export default function App() {
 
             <div className="mt-12 pt-6 border-t border-slate-200 flex justify-between items-end text-xs">
               <div className="text-slate-400 text-[10px]">
-                Dokumen ini dihasilkan secara otomatis oleh Sistem POS Warung Cobek Geprek.
+                Dokumen ini dihasilkan secara otomatis oleh Sistem POS Warung.
               </div>
               <div className="text-center w-48">
                 <p className="text-slate-500 mb-12">Penanggung Jawab,</p>
