@@ -4,9 +4,10 @@ import {
   Trash2, Printer, ChefHat, Image as ImageIcon, Download, 
   CreditCard, X, MapPin, ChevronUp, Edit3, CheckCircle2,
   Clock, TrendingUp, Calendar, Bluetooth, Smartphone, RefreshCw,
-  AlertTriangle, ShieldAlert, Tag, Wifi
+  AlertTriangle, ShieldAlert, Tag, Wifi, LogOut
 } from 'lucide-react';
 import { supabase } from './supabase';
+import Login from './Login';
 
 // --- NATIVE SVG AREA CHART (SKALA DINAMIS & FULL HEIGHT) ---
 const SimpleAreaChart = ({ data, isDark }) => {
@@ -114,6 +115,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('pos');
   const [isReady, setIsReady] = useState(false);
 
+  // --- STATE SYSTEM AUTHENTICATION ---
+  const [currentUser, setCurrentUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   // --- STATE REALTIME CLOUD SUPABASE ---
   const [menus, setMenus] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -127,8 +132,18 @@ export default function App() {
     bankAccount: '1234567890 a/n Bapak Geprek'
   });
 
-  // INITIAL FETCH & REALTIME LISTENERS
+  // INITIAL AUTH & REALTIME LISTENERS
   useEffect(() => {
+    // PENGECEKAN SESI LOGIN SUPABASE
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
+      setCheckingAuth(false);
+    });
+
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
     setIsReady(true);
     fetchSettings();
     fetchCategories();
@@ -186,10 +201,16 @@ export default function App() {
       .subscribe();
 
     return () => {
+      authSub.unsubscribe();
       supabase.removeChannel(ordersSubscription);
       supabase.removeChannel(menusSubscription);
     };
   }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+  };
 
   const fetchSettings = async () => {
     try {
@@ -879,6 +900,19 @@ export default function App() {
     badgeRed: isDark ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-red-100 text-red-700 border border-red-200',
   };
 
+  // PINTU GERBANG LOGIN
+  if (checkingAuth) return null;
+  if (!currentUser) {
+    return (
+      <Login 
+        onLoginSuccess={(usr) => setCurrentUser(usr)} 
+        isDark={isDark} 
+        storeName={settings.storeName} 
+        logoPic={settings.profilePic} 
+      />
+    );
+  }
+
   return (
     <div className={`min-h-screen w-full font-sans transition-colors duration-300 ease-in-out ${t.bg} ${t.text} pb-28 md:pb-0 overflow-x-hidden ${isReady ? 'opacity-100' : 'opacity-0'}`}>
       
@@ -940,11 +974,20 @@ export default function App() {
               </button>
             ))}
           </nav>
+
           <button 
             onClick={toggleTheme} 
             className={`p-3 rounded-2xl border transition-all duration-300 hover:border-orange-500 active:scale-90 ${t.glassCard}`}
           >
             {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-slate-600" />}
+          </button>
+
+          <button 
+            onClick={handleLogout} 
+            className={`p-3 rounded-2xl border transition-all duration-300 hover:border-red-500 hover:text-red-500 active:scale-90 ${t.glassCard}`}
+            title="Keluar Akun (Logout)"
+          >
+            <LogOut size={20} />
           </button>
         </div>
       </header>
