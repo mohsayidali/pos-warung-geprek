@@ -9,7 +9,7 @@ import {
 import { supabase } from './supabase';
 import Login from './Login';
 
-// --- NATIVE SVG AREA CHART (SKALA DINAMIS & FULL HEIGHT) ---
+// --- NATIVE SVG AREA CHART ---
 const SimpleAreaChart = ({ data, isDark }) => {
   if (!data || data.length === 0) return null;
 
@@ -134,7 +134,6 @@ export default function App() {
 
   // INITIAL AUTH & REALTIME LISTENERS
   useEffect(() => {
-    // PENGECEKAN SESI LOGIN SUPABASE
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
       setCheckingAuth(false);
@@ -150,7 +149,6 @@ export default function App() {
     fetchMenus();
     fetchOrders();
 
-    // REALTIME ORDERS (SINKRONISASI KASIR LAPTOP <-> DAPUR HP)
     const ordersSubscription = supabase
       .channel('public:orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
@@ -192,7 +190,6 @@ export default function App() {
       })
       .subscribe();
 
-    // REALTIME MENUS
     const menusSubscription = supabase
       .channel('public:menus')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menus' }, () => {
@@ -660,27 +657,20 @@ export default function App() {
     setShowMenuModal(true);
   };
 
-const handleSaveMenu = async () => {
+  const handleSaveMenu = async () => {
     if (!menuForm.name || !menuForm.price) return;
     
     let finalCategory = menuForm.category;
     if (isCustomCategoryMode && customCategoryInput.trim()) {
       finalCategory = customCategoryInput.trim();
-      
-      // Tambah kategori baru tanpa menyertakan ID manual (biarkan Supabase auto-increment ID-nya)
       const { error: catErr } = await supabase
         .from('categories')
         .insert([{ name: finalCategory }]);
 
-      if (catErr) {
-        console.error('Gagal simpan kategori:', catErr.message);
-      } else {
-        await fetchCategories();
-      }
+      if (!catErr) await fetchCategories();
     }
 
     if (editingMenu) {
-      // EDIT MENU EXISTING
       const { error } = await supabase.from('menus').update({
         name: menuForm.name,
         price: Number(menuForm.price),
@@ -691,7 +681,6 @@ const handleSaveMenu = async () => {
 
       if (error) alert('Gagal mengedit menu: ' + error.message);
     } else {
-      // TAMBAH MENU BARU
       const { error } = await supabase.from('menus').insert([{
         name: menuForm.name,
         price: Number(menuForm.price),
@@ -936,7 +925,7 @@ const handleSaveMenu = async () => {
       <header className={`flex justify-between items-center px-6 py-4 border-b sticky top-0 z-30 transition-colors duration-300 ${t.glassCard} rounded-none border-t-0 border-x-0`}>
         <div className="flex items-center gap-4">
           <div className="relative group cursor-pointer" onClick={() => profilePicRef.current.click()}>
-            <img src={settings.profilePic} alt="Logo" className="w-12 h-12 rounded-2xl object-cover border-2 border-orange-500 shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" />
+            <img src={settings.profilePic} alt="Logo" className="w-12 h-12 aspect-square max-w-[48px] max-h-[48px] rounded-2xl object-cover flex-shrink-0 border-2 border-orange-500 shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" />
             <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                <Edit3 size={16} className="text-white"/>
             </div>
@@ -947,7 +936,7 @@ const handleSaveMenu = async () => {
               {settings.storeName || 'NAMA WARUNG'}
             </h1>
             <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${t.textMuted}`}>
-              <Wifi size={10} className="text-emerald-500"/> Realtime Cloud Active
+              <Wifi size={10} className="text-emerald-500"/> Realtime Active
             </p>
           </div>
         </div>
@@ -1370,7 +1359,7 @@ const handleSaveMenu = async () => {
           <div className="animate-in fade-in h-full">
             <h2 className="text-2xl font-black mb-6 flex items-center gap-3">
               <div className="p-2.5 bg-orange-500/10 rounded-2xl"><ChefHat className="text-orange-500" size={28}/></div>
-              Kanban Dapur (Realtime Cloud Sync)
+              Kanban Dapur
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {['Masuk', 'Dimasak', 'Selesai'].map(statusFilter => (
@@ -1434,7 +1423,7 @@ const handleSaveMenu = async () => {
               <div>
                 <h2 className="text-2xl font-black flex items-center gap-3">
                   <div className="p-2.5 bg-orange-500/10 rounded-2xl"><TrendingUp className="text-orange-500" size={28}/></div>
-                  Dashboard Laporan (Realtime Cloud)
+                  Dashboard Laporan
                 </h2>
               </div>
 
@@ -1553,7 +1542,7 @@ const handleSaveMenu = async () => {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-zinc-500/20">
                 <div>
                   <h3 className="font-black text-sm uppercase tracking-wider flex items-center gap-2">
-                    📋 Riwayat Transaksi ({activeOrdersForReport.length} Nota)
+                    📋 Riwayat Transaksi
                   </h3>
                 </div>
                 
@@ -1614,7 +1603,7 @@ const handleSaveMenu = async () => {
                             {order.discountAmount ? `- ${formatIDR(order.discountAmount)}` : '-'}
                           </td>
                           <td className="py-3.5 px-4">
-                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                            <span className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider leading-none ${
                               order.method === 'Tunai' ? t.badgeGreen : order.method === 'QRIS' ? t.badgeOrange : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                             }`}>
                               {order.method === 'Tunai' ? '💵 Tunai' : order.method === 'QRIS' ? '📱 QRIS' : '💳 Transfer'}
@@ -1656,12 +1645,12 @@ const handleSaveMenu = async () => {
           <div className="animate-in fade-in max-w-5xl mx-auto space-y-8">
             <h2 className="text-2xl font-black flex items-center gap-3">
               <div className="p-2.5 bg-orange-500/10 rounded-2xl"><Settings className="text-orange-500" size={28}/></div>
-              Pengaturan Sistem (Cloud Supabase)
+              Pengaturan Sistem
             </h2>
             
             <div className={`p-6 md:p-8 rounded-3xl border flex flex-col md:flex-row gap-8 items-center transition-colors duration-300 ${t.glassCard}`}>
               <div className="relative group cursor-pointer" onClick={() => profilePicRef.current.click()}>
-                <img src={settings.profilePic} className="w-28 h-28 rounded-[2rem] object-cover border-4 border-orange-500 shadow-xl shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" alt="Profile"/>
+                <img src={settings.profilePic} className="w-28 h-28 aspect-square max-w-[112px] max-h-[112px] rounded-[2rem] object-cover border-4 border-orange-500 shadow-xl shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" alt="Profile"/>
                 <div className="absolute inset-0 bg-black/60 rounded-[2rem] flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white backdrop-blur-sm">
                   <ImageIcon size={24} className="mb-1" />
                   <span className="text-[10px] font-black uppercase tracking-wider">Ubah Foto</span>
@@ -1689,7 +1678,7 @@ const handleSaveMenu = async () => {
                     {settings.qrisPic ? (
                       <img src={settings.qrisPic} className="max-h-32 object-contain mb-4 rounded-xl bg-white p-2 shadow-sm" alt="QRIS" />
                     ) : (
-                      <div className="text-zinc-500 mb-2">Belum ada QRIS</div>
+                      <div className="text-zinc-500 mb-2">Upload Foto QRIS</div>
                     )}
                     <span className={`text-[10px] font-black uppercase tracking-wider px-4 py-1.5 rounded-full ${t.badgeOrange}`}>Klik Ganti QRIS</span>
                     <input type="file" ref={qrisPicRef} onChange={e => handleImageUpload(e, url => saveSettingsToCloud({...settings, qrisPic: url}))} accept="image/*" className="hidden" />
@@ -1757,10 +1746,10 @@ const handleSaveMenu = async () => {
 
             <div className={`p-6 md:p-8 rounded-3xl border border-red-500/30 transition-colors duration-300 ${t.glassCard}`}>
               <h3 className="font-black mb-2 text-sm uppercase tracking-wider text-red-500 flex items-center gap-2">
-                ⚠️ Pembersihan & Reset Data Cloud
+                ⚠️ Pembersihan & Reset Data
               </h3>
               <p className={`text-xs mb-6 ${t.textMuted}`}>
-                Gunakan fitur ini jika ingin memulai operasional warung dari 0 atau jika ingin menyerahkan aplikasi ke pemilik baru.
+                Gunakan fitur ini jika ingin memulai operasional warung dari 0 atau menyerahkan aplikasi ke pemilik baru.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1768,16 +1757,16 @@ const handleSaveMenu = async () => {
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'transactions', payload: null })}
                   className="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500 hover:text-white text-orange-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><RefreshCw size={16}/> Clear Riwayat Transaksi Cloud</span>
-                  <span className="text-[10px] opacity-80 mt-2">Menghapus nota kasir & laporan di Supabase (Omset jadi Rp 0). Katalog menu & profil warung tetap aman.</span>
+                  <span className="font-black text-sm mb-1 flex items-center gap-2"><RefreshCw size={16}/> Clear Riwayat Transaksi</span>
+                  <span className="text-[10px] opacity-80 mt-2">Menghapus nota kasir & laporan keuangan (Omset jadi Rp 0). Katalog menu & profil warung tetap aman.</span>
                 </button>
 
                 <button
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'factory', payload: null })}
                   className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:text-white text-red-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total (Siap Jual)</span>
-                  <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data cloud (Nama Warung, WA, Menu, Omset dikosongkan total 100%).</span>
+                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total Aplikasi</span>
+                  <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data (Nama Warung, WA, Menu, Omset dikosongkan total 100%).</span>
                 </button>
               </div>
             </div>
@@ -1787,8 +1776,12 @@ const handleSaveMenu = async () => {
 
       </main>
 
-      {/* MOBILE BOTTOM NAV */}
-      <nav className={`md:hidden fixed bottom-0 left-0 right-0 border-t flex justify-around p-2 pb-safe z-30 transition-colors duration-300 ${t.glassPanel}`}>
+      {/* MOBILE BOTTOM NAV (GLASSMORPHISM STYLE) */}
+      <nav className={`md:hidden fixed bottom-3 left-4 right-4 rounded-3xl border flex justify-around p-2 z-30 backdrop-blur-2xl transition-all duration-300 shadow-2xl ${
+        isDark 
+          ? 'bg-zinc-900/75 border-zinc-800/80 shadow-black/60' 
+          : 'bg-white/75 border-slate-200/80 shadow-slate-300/50'
+      }`}>
         {[
           { id: 'pos', icon: ShoppingCart, label: 'Kasir' },
           { id: 'dapur', icon: ChefHat, label: 'Dapur' },
@@ -1798,10 +1791,14 @@ const handleSaveMenu = async () => {
           <button 
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center gap-1.5 p-2 w-[72px] rounded-2xl transition-all duration-300 active:scale-90 ${activeTab === item.id ? 'text-orange-500 bg-orange-500/10 shadow-sm' : t.textMuted}`}
+            className={`flex flex-col items-center gap-1 p-2 w-[72px] rounded-2xl transition-all duration-300 active:scale-90 ${
+              activeTab === item.id 
+                ? 'text-orange-500 bg-orange-500/15 shadow-sm font-black' 
+                : t.textMuted
+            }`}
           >
-            <item.icon size={22} className={activeTab === item.id ? 'fill-orange-500/20' : ''} />
-            <span className="text-[9px] font-black uppercase tracking-wider">{item.label}</span>
+            <item.icon size={20} className={activeTab === item.id ? 'fill-orange-500/20' : ''} />
+            <span className="text-[9px] uppercase tracking-wider">{item.label}</span>
           </button>
         ))}
       </nav>
@@ -1816,17 +1813,17 @@ const handleSaveMenu = async () => {
 
             <h3 className="text-lg font-black uppercase tracking-wide text-red-500 mb-2">
               {resetModalConfig.type === 'factory' 
-                ? 'Konfirmasi Reset Total Cloud' 
+                ? 'Konfirmasi Reset Total' 
                 : resetModalConfig.type === 'transactions'
-                ? 'Clear Semua Transaksi Cloud?'
+                ? 'Clear Semua Transaksi?'
                 : `Hapus Order ${resetModalConfig.payload?.id}?`}
             </h3>
 
             <p className={`text-xs mb-6 leading-relaxed ${t.textMuted}`}>
               {resetModalConfig.type === 'factory' 
-                ? 'Tindakan ini akan MENGHAPUS SEMUA DATA CLOUD SUPABASE: Profil Warung, Katalog Menu, dan Omset dikosongkan total.'
+                ? 'Tindakan ini akan MENGHAPUS SEMUA DATA: Profil Warung, Katalog Menu, dan Omset dikosongkan total.'
                 : resetModalConfig.type === 'transactions'
-                ? 'Semua riwayat pesanan & laporan keuangan di Supabase akan dihapus. Katalog Menu tetap aman.'
+                ? 'Semua riwayat pesanan & laporan keuangan akan dihapus. Katalog Menu tetap aman.'
                 : `Nota pesanan ${resetModalConfig.payload?.id} atas nama "${resetModalConfig.payload?.customerName}" (${formatIDR(resetModalConfig.payload?.total || 0)}) akan dihapus permanen.`}
             </p>
 
@@ -2024,7 +2021,7 @@ const handleSaveMenu = async () => {
                       {settings.qrisPic ? (
                         <img src={settings.qrisPic} className="w-48 h-48 object-contain rounded-xl" alt="QRIS" />
                       ) : (
-                        <div className="w-48 h-48 flex items-center justify-center text-xs font-bold text-gray-500">QRIS Belum Di-set</div>
+                        <div className="w-48 h-48 flex items-center justify-center text-xs font-bold text-gray-500">Upload Foto QRIS</div>
                       )}
                     </div>
                     <p className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted} animate-pulse`}>Silakan pelanggan scan QRIS</p>
@@ -2044,7 +2041,7 @@ const handleSaveMenu = async () => {
                 disabled={!isCashSufficient}
                 className={`w-full py-4 rounded-2xl text-lg flex items-center justify-center gap-2 uppercase tracking-wider ${t.btnSuccess} disabled:opacity-50 disabled:grayscale`}
               >
-                <Printer size={20} /> Konfirmasi Bayar & Sync Cloud
+                <Printer size={20} /> Konfirmasi Bayar & Cetak
               </button>
             </div>
           </div>
@@ -2214,7 +2211,7 @@ const handleSaveMenu = async () => {
 
             <div className="flex justify-between items-center border-b-2 border-slate-800 pb-6 mb-6">
               <div className="flex items-center gap-4">
-                <img src={settings.profilePic} className="w-12 h-12 max-w-[48px] max-h-[48px] rounded-2xl object-cover border-2 border-orange-500 flex-shrink-0" alt="Logo" />
+                <img src={settings.profilePic} className="w-12 h-12 aspect-square max-w-[48px] max-h-[48px] rounded-2xl object-cover border-2 border-orange-500 flex-shrink-0" alt="Logo" />
                 <div>
                   <h1 className="text-2xl font-black text-slate-900 uppercase tracking-wide">{settings.storeName}</h1>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Laporan Penjualan Resmi {settings.phone ? `• Telp: ${settings.phone}` : ''}</p>
