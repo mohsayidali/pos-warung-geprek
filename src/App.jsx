@@ -919,33 +919,34 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen w-full font-sans transition-colors duration-300 ease-in-out ${t.bg} ${t.text} pb-28 md:pb-0 overflow-x-hidden ${isReady ? 'opacity-100' : 'opacity-0'}`}>
+    /* FIXED SCREEN CONTAINER FREEZE PANES */
+    <div className={`h-screen w-full font-sans transition-colors duration-300 ease-in-out ${t.bg} ${t.text} flex flex-col overflow-hidden ${isReady ? 'opacity-100' : 'opacity-0'}`}>
       
-      {/* HEADER */}
-      <header className={`flex justify-between items-center px-6 py-4 border-b sticky top-0 z-30 transition-colors duration-300 ${t.glassCard} rounded-none border-t-0 border-x-0`}>
+      {/* HEADER (DIAM TOTAL / FROZEN TOP BAR) */}
+      <header className={`flex justify-between items-center px-6 py-3 border-b sticky top-0 z-30 flex-shrink-0 transition-colors duration-300 ${t.glassCard} rounded-none border-t-0 border-x-0`}>
         <div className="flex items-center gap-4">
           <div className="relative group cursor-pointer" onClick={() => profilePicRef.current.click()}>
-            <img src={settings.profilePic} alt="Logo" className="w-12 h-12 aspect-square max-w-[48px] max-h-[48px] rounded-2xl object-cover flex-shrink-0 border-2 border-orange-500 shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" />
+            <img src={settings.profilePic} alt="Logo" className="w-10 h-10 aspect-square max-w-[40px] max-h-[40px] rounded-2xl object-cover flex-shrink-0 border-2 border-orange-500 shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" />
             <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-               <Edit3 size={16} className="text-white"/>
+               <Edit3 size={14} className="text-white"/>
             </div>
             <input type="file" ref={profilePicRef} onChange={e => handleImageUpload(e, url => saveSettingsToCloud({...settings, profilePic: url}))} accept="image/*" className="hidden" />
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-black uppercase tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500 drop-shadow-sm whitespace-nowrap">
+            <h1 className="text-base md:text-lg font-black uppercase tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-red-500 drop-shadow-sm whitespace-nowrap">
               {settings.storeName || 'NAMA WARUNG'}
             </h1>
-            <p className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${t.textMuted}`}>
-              <Wifi size={10} className="text-emerald-500"/> Realtime Active
+            <p className={`text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 ${t.textMuted}`}>
+              <Wifi size={9} className="text-emerald-500"/> Realtime Active
             </p>
           </div>
         </div>
+        
         <div className="flex gap-2 sm:gap-3 items-center">
-
           {deferredPrompt && (
             <button 
               onClick={handleInstallPWA}
-              className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-orange-500/30 active:scale-95 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-orange-500/30 active:scale-95 transition-all"
             >
               <Smartphone size={14}/> Install App PWA
             </button>
@@ -953,7 +954,7 @@ export default function App() {
 
           <button 
             onClick={connectBluetoothPrinter} 
-            className={`hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
               btStatus === 'Terhubung' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' : 'bg-orange-500/10 text-orange-500 border-orange-500/30 hover:bg-orange-500 hover:text-white'
             }`}
             title="Sambungkan Thermal Bluetooth Printer"
@@ -961,7 +962,7 @@ export default function App() {
             <Bluetooth size={14}/> {btStatus === 'Terhubung' ? 'Printer BT Ready' : btStatus === 'Menghubungkan...' ? 'Menghubungkan...' : 'Hubungkan BT Printer'}
           </button>
           
-          <nav className={`hidden md:flex p-1.5 rounded-2xl border transition-colors duration-300 ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-100/50 border-slate-200'}`}>
+          <nav className={`hidden md:flex p-1 rounded-2xl border transition-colors duration-300 ${isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-100/50 border-slate-200'}`}>
             {[
               { id: 'pos', icon: ShoppingCart, label: 'Kasir' },
               { id: 'dapur', icon: ChefHat, label: 'Dapur' },
@@ -971,44 +972,45 @@ export default function App() {
               <button 
                 key={tab.id} 
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 active:scale-95 ${
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 ${
                   activeTab === tab.id ? 'bg-white dark:bg-zinc-800 text-orange-500 shadow-sm' : `text-zinc-500 hover:text-orange-500 hover:bg-zinc-500/5`
                 }`}
               >
-                <tab.icon size={18} /> {tab.label}
+                <tab.icon size={16} /> {tab.label}
               </button>
             ))}
           </nav>
 
           <button 
             onClick={toggleTheme} 
-            className={`p-3 rounded-2xl border transition-all duration-300 hover:border-orange-500 active:scale-90 ${t.glassCard}`}
+            className={`p-2.5 rounded-2xl border transition-all duration-300 hover:border-orange-500 active:scale-90 ${t.glassCard}`}
           >
-            {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-slate-600" />}
+            {isDark ? <Sun size={18} className="text-yellow-400" /> : <Moon size={18} className="text-slate-600" />}
           </button>
 
           <button 
             onClick={handleLogout} 
-            className={`p-3 rounded-2xl border transition-all duration-300 hover:border-red-500 hover:text-red-500 active:scale-90 ${t.glassCard}`}
+            className={`p-2.5 rounded-2xl border transition-all duration-300 hover:border-red-500 hover:text-red-500 active:scale-90 ${t.glassCard}`}
             title="Keluar Akun (Logout)"
           >
-            <LogOut size={20} />
+            <LogOut size={18} />
           </button>
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      <main className="max-w-[1500px] mx-auto p-4 md:p-6 animate-in fade-in duration-300" key={activeTab}>
+      {/* MAIN CONTENT AREA (FREEZE PANES BODY) */}
+      <main className="max-w-[1500px] w-full mx-auto p-4 md:p-5 flex-1 overflow-hidden animate-in fade-in duration-300" key={activeTab}>
         
         {/* TAB: POS KASIR */}
         {activeTab === 'pos' && (
-          <div className="flex flex-col lg:flex-row gap-6 relative items-start">
+          <div className="flex flex-col lg:flex-row gap-5 h-full w-full overflow-hidden items-start">
+            
             {/* AREA KIRI: KATALOG MENU & FILTER KATEGORI */}
-            <div className="flex-1 w-full min-w-0 space-y-5">
+            <div className="flex-1 w-full min-w-0 flex flex-col h-full overflow-hidden space-y-4">
               
-              {/* TAB FILTER KATEGORI DINAMIS */}
+              {/* TAB FILTER KATEGORI (DIAM DI ATAS / FROZEN) */}
               {menus.length > 0 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar w-full">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar w-full flex-shrink-0">
                   <button
                     onClick={() => setSelectedCategoryTab('Semua')}
                     className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 active:scale-95 ${
@@ -1038,50 +1040,52 @@ export default function App() {
                 </div>
               )}
 
-              {filteredMenus.length === 0 ? (
-                <div className={`p-12 text-center rounded-3xl border flex flex-col items-center justify-center ${t.glassCard}`}>
-                  <ShoppingCart size={48} className="text-orange-500 opacity-40 mb-3" />
-                  <h3 className="font-black text-lg">Menu Tidak Ditemukan</h3>
-                  <p className="text-xs opacity-70 mt-1 max-w-sm">Tidak ada menu pada kategori <b>"{selectedCategoryTab}"</b>.</p>
-                </div>
-              ) : (
-                /* GRID MENU DIBATASI MAKSIMAL 3 KOLOM */
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-5">
-                  {filteredMenus.map((menu) => (
-                    <div 
-                      key={menu.id} 
-                      onClick={() => menu.isAvailable && addToCart(menu)}
-                      className={`rounded-3xl border p-5 flex flex-col items-center text-center transition-all duration-300 ${t.glassCard} 
-                        ${menu.isAvailable 
-                          ? 'cursor-pointer hover:border-orange-500 hover:shadow-orange-500/20 hover:-translate-y-1 active:scale-95 active:translate-y-0' 
-                          : 'opacity-50 grayscale cursor-not-allowed'}`}
-                    >
-                      <div className="text-5xl mb-4 h-16 flex items-center justify-center drop-shadow-md">
-                        {typeof menu.image === 'string' && (menu.image.startsWith('http') || menu.image.startsWith('blob:') || menu.image.startsWith('data:')) 
-                          ? <img src={menu.image} className="h-16 w-16 object-cover rounded-2xl shadow-sm" alt={menu.name} /> 
-                          : menu.image}
+              {/* HANYA AREA GRID MENU INI YANG BISA DI-SCROLL */}
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                {filteredMenus.length === 0 ? (
+                  <div className={`p-12 text-center rounded-3xl border flex flex-col items-center justify-center ${t.glassCard}`}>
+                    <ShoppingCart size={48} className="text-orange-500 opacity-40 mb-3" />
+                    <h3 className="font-black text-lg">Menu Tidak Ditemukan</h3>
+                    <p className="text-xs opacity-70 mt-1 max-w-sm">Tidak ada menu pada kategori <b>"{selectedCategoryTab}"</b>.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-5 pb-8">
+                    {filteredMenus.map((menu) => (
+                      <div 
+                        key={menu.id} 
+                        onClick={() => menu.isAvailable && addToCart(menu)}
+                        className={`rounded-3xl border p-5 flex flex-col items-center text-center transition-all duration-300 ${t.glassCard} 
+                          ${menu.isAvailable 
+                            ? 'cursor-pointer hover:border-orange-500 hover:shadow-orange-500/20 hover:-translate-y-1 active:scale-95 active:translate-y-0' 
+                            : 'opacity-50 grayscale cursor-not-allowed'}`}
+                      >
+                        <div className="text-5xl mb-4 h-16 flex items-center justify-center drop-shadow-md">
+                          {typeof menu.image === 'string' && (menu.image.startsWith('http') || menu.image.startsWith('blob:') || menu.image.startsWith('data:')) 
+                            ? <img src={menu.image} className="h-16 w-16 object-cover rounded-2xl shadow-sm" alt={menu.name} /> 
+                            : menu.image}
+                        </div>
+                        <span className={`text-[9px] font-black uppercase tracking-wider mb-2 px-2 py-0.5 rounded-full ${t.badgeOrange}`}>
+                          {menu.category}
+                        </span>
+                        <h3 className="font-bold text-sm mb-1.5 leading-tight">{menu.name}</h3>
+                        <p className="text-orange-500 font-black text-base">{formatIDR(menu.price)}</p>
+                        {!menu.isAvailable && <span className={`text-[10px] px-3 py-1 rounded-full mt-3 font-bold uppercase ${t.badgeRed}`}>Habis</span>}
                       </div>
-                      <span className={`text-[9px] font-black uppercase tracking-wider mb-2 px-2 py-0.5 rounded-full ${t.badgeOrange}`}>
-                        {menu.category}
-                      </span>
-                      <h3 className="font-bold text-sm mb-1.5 leading-tight">{menu.name}</h3>
-                      <p className="text-orange-500 font-black text-base">{formatIDR(menu.price)}</p>
-                      {!menu.isAvailable && <span className={`text-[10px] px-3 py-1 rounded-full mt-3 font-bold uppercase ${t.badgeRed}`}>Habis</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* AREA KANAN: SIDEBAR KERANJANG DESKTOP (STICKY FIXED HEIGHT PANEL) */}
-            <div className="hidden lg:flex w-[380px] flex-shrink-0 flex-col sticky top-[90px] h-[calc(100vh-115px)] z-20">
+            {/* AREA KANAN: SIDEBAR KERANJANG DESKTOP (FREEZE / FROZEN RIGHT PANEL) */}
+            <div className="hidden lg:flex w-[380px] flex-shrink-0 flex-col h-full z-20">
               <div className={`flex-1 rounded-3xl border p-5 flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
                 <h2 className="text-xl font-black border-b pb-4 mb-4 flex items-center gap-3 border-zinc-500/20 flex-shrink-0">
                   <div className="p-2 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={24}/></div>
                   Keranjang Pesanan
                 </h2>
 
-                {/* SCROLLABLE ITEM LIST */}
+                {/* SCROLLABLE ITEM LIST INSIDE CART */}
                 <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
                   {cart.length === 0 ? (
                     <div className={`text-center h-full flex flex-col items-center justify-center ${t.textMuted}`}>
@@ -1223,7 +1227,7 @@ export default function App() {
 
             {/* FLOATING CART BUTTON (MOBILE) */}
             {!isMobileCartOpen && cart.length > 0 && (
-              <div className="lg:hidden fixed bottom-24 left-4 right-4 z-40 animate-in slide-in-from-bottom-10">
+              <div className="lg:hidden fixed bottom-20 left-4 right-4 z-40 animate-in slide-in-from-bottom-10">
                 <button 
                   onClick={() => setIsMobileCartOpen(true)}
                   className={`w-full p-4 rounded-3xl flex justify-between items-center ${t.btnPrimary}`}
@@ -1361,16 +1365,16 @@ export default function App() {
 
         {/* TAB: DAPUR (KDS REALTIME) */}
         {activeTab === 'dapur' && (
-          <div className="animate-in fade-in h-full">
-            <h2 className="text-2xl font-black mb-6 flex items-center gap-3">
+          <div className="animate-in fade-in h-full flex flex-col overflow-hidden">
+            <h2 className="text-2xl font-black mb-4 flex items-center gap-3 flex-shrink-0">
               <div className="p-2.5 bg-orange-500/10 rounded-2xl"><ChefHat className="text-orange-500" size={28}/></div>
               Kanban Dapur
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 flex-1 overflow-hidden">
               {['Masuk', 'Dimasak', 'Selesai'].map(statusFilter => (
-                <div key={statusFilter} className={`p-5 rounded-3xl border flex flex-col h-[75vh] transition-colors duration-300 ${t.glassCard}`}>
-                  <div className={`flex justify-between items-center mb-5 pb-4 border-b border-zinc-500/20`}>
-                    <h3 className={`font-black uppercase tracking-wider text-sm
+                <div key={statusFilter} className={`p-4 rounded-3xl border flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
+                  <div className={`flex justify-between items-center mb-4 pb-3 border-b border-zinc-500/20 flex-shrink-0`}>
+                    <h3 className={`font-black uppercase tracking-wider text-xs
                       ${statusFilter === 'Masuk' ? 'text-red-500' : statusFilter === 'Dimasak' ? 'text-orange-500' : 'text-emerald-500'}
                     `}>{statusFilter}</h3>
                     <span className={`text-xs font-black px-3 py-1 rounded-full 
@@ -1379,7 +1383,7 @@ export default function App() {
                     </span>
                   </div>
                   
-                  <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
+                  <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-1">
                     {orders.filter(o => o.status === statusFilter).map((order) => (
                       <div key={order.id} className={`p-4 rounded-2xl border border-l-4 shadow-sm transition-all duration-300 hover:shadow-md ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}
                         ${statusFilter === 'Masuk' ? 'border-l-red-500' : statusFilter === 'Dimasak' ? 'border-l-orange-500' : 'border-l-emerald-500'}`}
@@ -1423,8 +1427,8 @@ export default function App() {
 
         {/* TAB: LAPORAN */}
         {activeTab === 'laporan' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-500/20 pb-5">
+          <div className="space-y-5 animate-in fade-in h-full overflow-y-auto pr-2 custom-scrollbar">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-500/20 pb-4">
               <div>
                 <h2 className="text-2xl font-black flex items-center gap-3">
                   <div className="p-2.5 bg-orange-500/10 rounded-2xl"><TrendingUp className="text-orange-500" size={28}/></div>
@@ -1476,45 +1480,45 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-              <div className={`p-6 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${t.textMuted}`}>Total Omset</p>
-                <h3 className="text-2xl md:text-4xl font-black text-emerald-500 drop-shadow-sm">{formatIDR(totalOmset)}</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className={`p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
+                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Omset</p>
+                <h3 className="text-2xl md:text-3xl font-black text-emerald-500 drop-shadow-sm">{formatIDR(totalOmset)}</h3>
               </div>
-              <div className={`p-6 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${t.textMuted}`}>Total Transaksi</p>
-                <h3 className="text-2xl md:text-4xl font-black drop-shadow-sm">{activeOrdersForReport.length} Nota</h3>
+              <div className={`p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
+                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Transaksi</p>
+                <h3 className="text-2xl md:text-3xl font-black drop-shadow-sm">{activeOrdersForReport.length} Nota</h3>
               </div>
-              <div className={`col-span-2 md:col-span-1 p-6 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${t.textMuted}`}>Rata-rata / Nota</p>
-                <h3 className="text-2xl md:text-4xl font-black text-orange-500 drop-shadow-sm">{formatIDR(activeOrdersForReport.length > 0 ? totalOmset / activeOrdersForReport.length : 0)}</h3>
+              <div className={`col-span-2 md:col-span-1 p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
+                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Rata-rata / Nota</p>
+                <h3 className="text-2xl md:text-3xl font-black text-orange-500 drop-shadow-sm">{formatIDR(activeOrdersForReport.length > 0 ? totalOmset / activeOrdersForReport.length : 0)}</h3>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className={`lg:col-span-2 p-6 rounded-3xl border transition-colors duration-300 flex flex-col justify-between ${t.glassCard}`}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              <div className={`lg:col-span-2 p-5 rounded-3xl border transition-colors duration-300 flex flex-col justify-between ${t.glassCard}`}>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-black text-xs uppercase tracking-wider opacity-80">📈 Tren Omset</h3>
                   <select value={reportFilter} onChange={e => setReportFilter(e.target.value)} className={`px-3 py-1 rounded-lg text-xs font-bold border outline-none ${t.input}`}>
                     <option>Harian</option><option>Mingguan</option><option>Bulanan</option>
                   </select>
                 </div>
-                <div className="h-80 md:h-96 w-full flex-1">
+                <div className="h-64 md:h-80 w-full flex-1">
                   <SimpleAreaChart data={chartData} isDark={isDark} />
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className={`p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-                  <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80">💳 Metode Bayar</h3>
+              <div className="space-y-5">
+                <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+                  <h3 className="font-black mb-3 text-xs uppercase tracking-wider opacity-80">💳 Metode Bayar</h3>
                   <div className="py-2">
                     {pieData.length > 0 ? (
                       <SimpleDonutChart data={pieData} colors={COLORS} isDark={isDark} />
                     ) : (
-                      <p className="text-xs opacity-50 text-center py-8">Belum ada data</p>
+                      <p className="text-xs opacity-50 text-center py-6">Belum ada data</p>
                     )}
                   </div>
-                  <div className="flex justify-center gap-4 text-[10px] font-black uppercase tracking-wider mt-4">
+                  <div className="flex justify-center gap-4 text-[10px] font-black uppercase tracking-wider mt-3">
                     {['Tunai', 'QRIS', 'Transfer'].map((name, i) => (
                       <span key={name} className="flex items-center gap-1.5">
                         <div className="w-3 h-3 rounded-full shadow-sm" style={{backgroundColor: COLORS[i]}}/> {name}
@@ -1523,14 +1527,14 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className={`p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-                  <h3 className="font-black mb-5 text-xs uppercase tracking-wider opacity-80">🏆 Top 3 Menu Terlaris</h3>
-                  <div className="space-y-3.5">
+                <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+                  <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80">🏆 Top 3 Menu Terlaris</h3>
+                  <div className="space-y-3">
                     {topMenus.length === 0 ? <p className="text-xs opacity-50 text-center py-4">Belum ada data</p> : 
                       topMenus.map(([name, count], idx) => (
-                        <div key={idx} className={`flex justify-between items-center p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                        <div key={idx} className={`flex justify-between items-center p-3 rounded-2xl border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
                           <span className="font-bold text-xs flex items-center gap-3">
-                            <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-[10px] font-black text-white shadow-sm ${idx===0?'bg-gradient-to-br from-yellow-400 to-yellow-600':idx===1?'bg-gradient-to-br from-slate-300 to-slate-500':'bg-gradient-to-br from-amber-600 to-amber-800'}`}>{idx+1}</span>
+                            <span className={`w-6 h-6 rounded-xl flex items-center justify-center text-[10px] font-black text-white shadow-sm ${idx===0?'bg-gradient-to-br from-yellow-400 to-yellow-600':idx===1?'bg-gradient-to-br from-slate-300 to-slate-500':'bg-gradient-to-br from-amber-600 to-amber-800'}`}>{idx+1}</span>
                             {name}
                           </span>
                           <span className={`font-black text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-lg ${t.badgeOrange}`}>{count}x</span>
@@ -1543,8 +1547,8 @@ export default function App() {
             </div>
 
             {/* TABEL RINCIAN TRANSAKSI */}
-            <div className={`p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-zinc-500/20">
+            <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-3 border-b border-zinc-500/20">
                 <div>
                   <h3 className="font-black text-sm uppercase tracking-wider flex items-center gap-2">
                     📋 Riwayat Transaksi
@@ -1589,35 +1593,35 @@ export default function App() {
                     ) : (
                       activeOrdersForReport.map((order) => (
                         <tr key={order.id} className={`hover:bg-zinc-500/5 transition-colors ${isDark ? 'text-zinc-200' : 'text-slate-700'}`}>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3 px-4">
                             <span className="font-black text-orange-500 block">{order.id}</span>
                             <span className="text-[10px] opacity-70">
                               {new Date(order.date).toLocaleDateString('id-ID', {day: '2-digit', month: '2-digit', year: 'numeric'})} • {new Date(order.date).toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'})}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 font-bold">
+                          <td className="py-3 px-4 font-bold">
                             <div>{order.customerName}</div>
                             <div className="text-[10px] opacity-60 font-normal">{order.address}</div>
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3 px-4">
                             <div className="max-w-[220px] truncate">
                               {order.items.map(i => `${i.qty}x ${i.name}`).join(', ')}
                             </div>
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-red-500">
+                          <td className="py-3 px-4 font-bold text-red-500">
                             {order.discountAmount ? `- ${formatIDR(order.discountAmount)}` : '-'}
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3 px-4">
                             <span className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider leading-none ${
                               order.method === 'Tunai' ? t.badgeGreen : order.method === 'QRIS' ? t.badgeOrange : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                             }`}>
                               {order.method === 'Tunai' ? '💵 Tunai' : order.method === 'QRIS' ? '📱 QRIS' : '💳 Transfer'}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-right font-black text-sm text-emerald-500">
+                          <td className="py-3 px-4 text-right font-black text-sm text-emerald-500">
                             {formatIDR(order.total)}
                           </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-2">
                               <button 
                                 onClick={() => { setCurrentOrderReceipt(order); setShowReceipt(true); }}
@@ -1647,101 +1651,101 @@ export default function App() {
 
         {/* TAB: PENGATURAN */}
         {activeTab === 'pengaturan' && (
-          <div className="animate-in fade-in max-w-5xl mx-auto space-y-8">
+          <div className="animate-in fade-in max-w-5xl mx-auto space-y-6 h-full overflow-y-auto pr-2 custom-scrollbar">
             <h2 className="text-2xl font-black flex items-center gap-3">
               <div className="p-2.5 bg-orange-500/10 rounded-2xl"><Settings className="text-orange-500" size={28}/></div>
               Pengaturan Sistem
             </h2>
             
-            <div className={`p-6 md:p-8 rounded-3xl border flex flex-col md:flex-row gap-8 items-center transition-colors duration-300 ${t.glassCard}`}>
+            <div className={`p-6 rounded-3xl border flex flex-col md:flex-row gap-6 items-center transition-colors duration-300 ${t.glassCard}`}>
               <div className="relative group cursor-pointer" onClick={() => profilePicRef.current.click()}>
-                <img src={settings.profilePic} className="w-28 h-28 aspect-square max-w-[112px] max-h-[112px] rounded-[2rem] object-cover border-4 border-orange-500 shadow-xl shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" alt="Profile"/>
+                <img src={settings.profilePic} className="w-24 h-24 aspect-square max-w-[96px] max-h-[96px] rounded-[2rem] object-cover border-4 border-orange-500 shadow-xl shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" alt="Profile"/>
                 <div className="absolute inset-0 bg-black/60 rounded-[2rem] flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white backdrop-blur-sm">
-                  <ImageIcon size={24} className="mb-1" />
-                  <span className="text-[10px] font-black uppercase tracking-wider">Ubah Foto</span>
+                  <ImageIcon size={20} className="mb-1" />
+                  <span className="text-[9px] font-black uppercase tracking-wider">Ubah Foto</span>
                 </div>
                 <input type="file" ref={profilePicRef} onChange={e => handleImageUpload(e, url => saveSettingsToCloud({...settings, profilePic: url}))} accept="image/*" className="hidden" />
               </div>
               <div className="flex-1 w-full space-y-4">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-orange-500 block mb-1">Nama Usaha / Warung</label>
-                  <input type="text" value={settings.storeName} onChange={e => saveSettingsToCloud({...settings, storeName: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none text-lg font-black transition-all ${t.input}`} />
+                  <input type="text" value={settings.storeName} onChange={e => saveSettingsToCloud({...settings, storeName: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none text-base font-black transition-all ${t.input}`} />
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-orange-500 block mb-1">No. Telepon / WA Admin (Ditampilkan di Struk)</label>
-                  <input type="text" value={settings.phone || ''} onChange={e => saveSettingsToCloud({...settings, phone: e.target.value})} placeholder="Cth: 0812-3456-7890" className={`w-full p-3.5 rounded-2xl border outline-none text-sm font-bold transition-all ${t.input}`} />
+                  <input type="text" value={settings.phone || ''} onChange={e => saveSettingsToCloud({...settings, phone: e.target.value})} placeholder="Cth: 0812-3456-7890" className={`w-full p-3.5 rounded-2xl border outline-none text-xs font-bold transition-all ${t.input}`} />
                 </div>
               </div>
             </div>
 
-            <div className={`p-6 md:p-8 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-              <h3 className="font-black mb-6 text-sm uppercase tracking-wider opacity-80 border-b border-zinc-500/20 pb-4">Info Pembayaran (QRIS & Transfer)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={`p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+              <h3 className="font-black mb-5 text-xs uppercase tracking-wider opacity-80 border-b border-zinc-500/20 pb-3">Info Pembayaran (QRIS & Transfer)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">Upload Gambar QRIS (Galeri Lokal)</label>
-                  <div className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all hover:border-orange-500 flex flex-col items-center justify-center h-56 ${isDark ? 'border-zinc-700 bg-zinc-950/50' : 'border-slate-300 bg-slate-50'}`} onClick={() => qrisPicRef.current.click()}>
+                  <div className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all hover:border-orange-500 flex flex-col items-center justify-center h-48 ${isDark ? 'border-zinc-700 bg-zinc-950/50' : 'border-slate-300 bg-slate-50'}`} onClick={() => qrisPicRef.current.click()}>
                     {settings.qrisPic ? (
-                      <img src={settings.qrisPic} className="max-h-32 object-contain mb-4 rounded-xl bg-white p-2 shadow-sm" alt="QRIS" />
+                      <img src={settings.qrisPic} className="max-h-28 object-contain mb-2 rounded-xl bg-white p-2 shadow-sm" alt="QRIS" />
                     ) : (
-                      <div className="text-zinc-500 mb-2">Upload Foto QRIS</div>
+                      <div className="text-zinc-500 mb-2 text-xs">Upload Foto QRIS</div>
                     )}
-                    <span className={`text-[10px] font-black uppercase tracking-wider px-4 py-1.5 rounded-full ${t.badgeOrange}`}>Klik Ganti QRIS</span>
+                    <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full ${t.badgeOrange}`}>Klik Ganti QRIS</span>
                     <input type="file" ref={qrisPicRef} onChange={e => handleImageUpload(e, url => saveSettingsToCloud({...settings, qrisPic: url}))} accept="image/*" className="hidden" />
                   </div>
                 </div>
-                <div className="space-y-5 flex flex-col justify-center">
+                <div className="space-y-4 flex flex-col justify-center">
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">Nama Bank (Cth: BCA)</label>
-                    <input type="text" value={settings.bankName} onChange={e => saveSettingsToCloud({...settings, bankName: e.target.value})} className={`w-full p-4 rounded-2xl border outline-none transition-all ${t.input}`} />
+                    <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">Nama Bank (Cth: BCA)</label>
+                    <input type="text" value={settings.bankName} onChange={e => saveSettingsToCloud({...settings, bankName: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none text-xs transition-all ${t.input}`} />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">No. Rekening & Atas Nama</label>
-                    <input type="text" value={settings.bankAccount} onChange={e => saveSettingsToCloud({...settings, bankAccount: e.target.value})} className={`w-full p-4 rounded-2xl border outline-none transition-all ${t.input}`} />
+                    <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">No. Rekening & Atas Nama</label>
+                    <input type="text" value={settings.bankAccount} onChange={e => saveSettingsToCloud({...settings, bankAccount: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none text-xs transition-all ${t.input}`} />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className={`p-6 md:p-8 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-zinc-500/20 pb-5">
-                <h3 className="font-black text-sm uppercase tracking-wider opacity-80">Manajemen Daftar Menu</h3>
+            <div className={`p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4 border-b border-zinc-500/20 pb-4">
+                <h3 className="font-black text-xs uppercase tracking-wider opacity-80">Manajemen Daftar Menu</h3>
                 <button 
                   onClick={() => handleOpenMenuModal()}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${t.btnPrimary}`}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${t.btnPrimary}`}
                 >
                   <Plus size={16}/> Tambah Menu
                 </button>
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {menus.map(menu => (
-                  <div key={menu.id} className={`flex justify-between items-center p-4 rounded-2xl border transition-colors ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                    <div className="flex items-center gap-5">
-                      <div className="w-14 h-14 flex justify-center items-center bg-zinc-500/10 rounded-2xl text-3xl shadow-sm border border-zinc-500/20 overflow-hidden">
+                  <div key={menu.id} className={`flex justify-between items-center p-3.5 rounded-2xl border transition-colors ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 flex justify-center items-center bg-zinc-500/10 rounded-2xl text-2xl shadow-sm border border-zinc-500/20 overflow-hidden">
                         {typeof menu.image === 'string' && (menu.image.startsWith('http') || menu.image.startsWith('blob:') || menu.image.startsWith('data:')) 
                           ? <img src={menu.image} className="w-full h-full object-cover" alt={menu.name} /> 
                           : (menu.image || '🍽️')}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-black text-sm">{menu.name}</p>
+                          <p className="font-black text-xs">{menu.name}</p>
                           <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${t.badgeOrange}`}>{menu.category}</span>
                         </div>
-                        <p className="text-sm text-orange-500 font-black mt-0.5">{formatIDR(menu.price)}</p>
+                        <p className="text-xs text-orange-500 font-black mt-0.5">{formatIDR(menu.price)}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 sm:gap-6">
+                    <div className="flex items-center gap-4">
                       <button 
                         onClick={() => toggleMenuAvailability(menu.id, menu.isAvailable)}
-                        className={`w-14 h-7 rounded-full p-1 transition-colors relative flex-shrink-0 shadow-inner ${menu.isAvailable ? 'bg-emerald-500' : isDark ? 'bg-zinc-700' : 'bg-slate-300'}`}
+                        className={`w-12 h-6 rounded-full p-0.5 transition-colors relative flex-shrink-0 shadow-inner ${menu.isAvailable ? 'bg-emerald-500' : isDark ? 'bg-zinc-700' : 'bg-slate-300'}`}
                       >
-                        <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform absolute top-1 ${menu.isAvailable ? 'left-8' : 'left-1'}`}/>
+                        <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform absolute top-0.5 ${menu.isAvailable ? 'left-6.5' : 'left-0.5'}`}/>
                       </button>
                       
                       <div className={`flex border rounded-xl overflow-hidden shadow-sm ${t.glassCard}`}>
-                        <button onClick={() => handleOpenMenuModal(menu)} className="p-3 hover:text-orange-500 hover:bg-orange-500/10 transition-colors active:bg-orange-500/20"><Edit3 size={16}/></button>
+                        <button onClick={() => handleOpenMenuModal(menu)} className="p-2.5 hover:text-orange-500 hover:bg-orange-500/10 transition-colors active:bg-orange-500/20"><Edit3 size={15}/></button>
                         <div className="w-px bg-zinc-500/20"></div>
-                        <button onClick={() => handleDeleteMenu(menu.id)} className="p-3 hover:text-red-500 hover:bg-red-500/10 transition-colors active:bg-red-500/20"><Trash2 size={16}/></button>
+                        <button onClick={() => handleDeleteMenu(menu.id)} className="p-2.5 hover:text-red-500 hover:bg-red-500/10 transition-colors active:bg-red-500/20"><Trash2 size={15}/></button>
                       </div>
                     </div>
                   </div>
@@ -1749,11 +1753,11 @@ export default function App() {
               </div>
             </div>
 
-            <div className={`p-6 md:p-8 rounded-3xl border border-red-500/30 transition-colors duration-300 ${t.glassCard}`}>
-              <h3 className="font-black mb-2 text-sm uppercase tracking-wider text-red-500 flex items-center gap-2">
+            <div className={`p-6 rounded-3xl border border-red-500/30 transition-colors duration-300 ${t.glassCard}`}>
+              <h3 className="font-black mb-2 text-xs uppercase tracking-wider text-red-500 flex items-center gap-2">
                 ⚠️ Pembersihan & Reset Data
               </h3>
-              <p className={`text-xs mb-6 ${t.textMuted}`}>
+              <p className={`text-xs mb-5 ${t.textMuted}`}>
                 Gunakan fitur ini jika ingin memulai operasional warung dari 0 atau menyerahkan aplikasi ke pemilik baru.
               </p>
 
@@ -1762,7 +1766,7 @@ export default function App() {
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'transactions', payload: null })}
                   className="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500 hover:text-white text-orange-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><RefreshCw size={16}/> Clear Riwayat Transaksi</span>
+                  <span className="font-black text-xs mb-1 flex items-center gap-2"><RefreshCw size={15}/> Clear Riwayat Transaksi</span>
                   <span className="text-[10px] opacity-80 mt-2">Menghapus nota kasir & laporan keuangan (Omset jadi Rp 0). Katalog menu & profil warung tetap aman.</span>
                 </button>
 
@@ -1770,7 +1774,7 @@ export default function App() {
                   onClick={() => setResetModalConfig({ isOpen: true, type: 'factory', payload: null })}
                   className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:text-white text-red-500 font-bold text-xs uppercase tracking-wider transition-all active:scale-95 text-left flex flex-col justify-between cursor-pointer"
                 >
-                  <span className="font-black text-sm mb-1 flex items-center gap-2"><Trash2 size={16}/> Reset Total Aplikasi</span>
+                  <span className="font-black text-xs mb-1 flex items-center gap-2"><Trash2 size={15}/> Reset Total Aplikasi</span>
                   <span className="text-[10px] opacity-80 mt-2">Menghapus SELURUH data (Nama Warung, WA, Menu, Omset dikosongkan total 100%).</span>
                 </button>
               </div>
@@ -1782,10 +1786,10 @@ export default function App() {
       </main>
 
       {/* MOBILE BOTTOM NAV (GLASSMORPHISM STYLE) */}
-      <nav className={`md:hidden fixed bottom-3 left-4 right-4 rounded-3xl border flex justify-around p-2 z-30 backdrop-blur-2xl transition-all duration-300 shadow-2xl ${
+      <nav className={`md:hidden fixed bottom-3 left-4 right-4 rounded-3xl border flex justify-around p-1.5 z-30 backdrop-blur-2xl transition-all duration-300 shadow-2xl ${
         isDark 
-          ? 'bg-zinc-900/75 border-zinc-800/80 shadow-black/60' 
-          : 'bg-white/75 border-slate-200/80 shadow-slate-300/50'
+          ? 'bg-zinc-900/80 border-zinc-800/80 shadow-black/60' 
+          : 'bg-white/80 border-slate-200/80 shadow-slate-300/50'
       }`}>
         {[
           { id: 'pos', icon: ShoppingCart, label: 'Kasir' },
@@ -1796,13 +1800,13 @@ export default function App() {
           <button 
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center gap-1 p-2 w-[72px] rounded-2xl transition-all duration-300 active:scale-90 ${
+            className={`flex flex-col items-center gap-0.5 p-1.5 w-[68px] rounded-2xl transition-all duration-300 active:scale-90 ${
               activeTab === item.id 
                 ? 'text-orange-500 bg-orange-500/15 shadow-sm font-black' 
                 : t.textMuted
             }`}
           >
-            <item.icon size={20} className={activeTab === item.id ? 'fill-orange-500/20' : ''} />
+            <item.icon size={18} className={activeTab === item.id ? 'fill-orange-500/20' : ''} />
             <span className="text-[9px] uppercase tracking-wider">{item.label}</span>
           </button>
         ))}
@@ -1812,11 +1816,11 @@ export default function App() {
       {resetModalConfig.isOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl relative flex flex-col p-6 text-center border transition-transform slide-in-from-bottom-6 ${t.glassPanel}`}>
-            <div className="mx-auto w-16 h-16 rounded-3xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 mb-4 shadow-lg shadow-red-500/20">
-              {resetModalConfig.type === 'factory' ? <ShieldAlert size={36} /> : <AlertTriangle size={36} />}
+            <div className="mx-auto w-14 h-14 rounded-3xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 mb-4 shadow-lg shadow-red-500/20">
+              {resetModalConfig.type === 'factory' ? <ShieldAlert size={32} /> : <AlertTriangle size={32} />}
             </div>
 
-            <h3 className="text-lg font-black uppercase tracking-wide text-red-500 mb-2">
+            <h3 className="text-base font-black uppercase tracking-wide text-red-500 mb-2">
               {resetModalConfig.type === 'factory' 
                 ? 'Konfirmasi Reset Total' 
                 : resetModalConfig.type === 'transactions'
@@ -1835,7 +1839,7 @@ export default function App() {
             <div className="flex gap-3">
               <button 
                 onClick={() => setResetModalConfig({ isOpen: false, type: '', payload: null })}
-                className={`flex-1 py-3.5 rounded-2xl font-bold text-xs uppercase tracking-wider border transition-all active:scale-95 ${isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-300' : 'bg-slate-100 border-slate-300 text-slate-700'}`}
+                className={`flex-1 py-3 rounded-2xl font-bold text-xs uppercase tracking-wider border transition-all active:scale-95 ${isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-300' : 'bg-slate-100 border-slate-300 text-slate-700'}`}
               >
                 Batal
               </button>
@@ -1847,7 +1851,7 @@ export default function App() {
                     ? executeClearTransactions
                     : () => executeDeleteSingleOrder(resetModalConfig.payload?.id)
                 }
-                className="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 transition-all active:scale-95"
+                className="flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-wider bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30 transition-all active:scale-95"
               >
                 Ya, Hapus
               </button>
@@ -1859,22 +1863,22 @@ export default function App() {
       {/* MODAL: TAMBAH / EDIT MENU */}
       {showMenuModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl relative flex flex-col p-7 transition-transform slide-in-from-bottom-8 ${t.glassPanel}`}>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black flex items-center gap-2"><Edit3 className="text-orange-500"/> {editingMenu ? 'Edit Menu' : 'Tambah Menu'}</h2>
+          <div className={`w-full max-w-sm rounded-[2rem] shadow-2xl relative flex flex-col p-6 transition-transform slide-in-from-bottom-8 ${t.glassPanel}`}>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-lg font-black flex items-center gap-2"><Edit3 className="text-orange-500" size={20}/> {editingMenu ? 'Edit Menu' : 'Tambah Menu'}</h2>
               <button onClick={() => setShowMenuModal(false)} className={`p-2 rounded-full border transition-colors hover:bg-zinc-500/20 active:scale-90 ${isDark ? 'border-zinc-700' : 'border-slate-300'}`}><X size={18}/></button>
             </div>
 
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">Nama Menu</label>
-                <input type="text" value={menuForm.name} onChange={e => setMenuForm({...menuForm, name: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`} placeholder="Cth: Ayam Geprek" />
+                <input type="text" value={menuForm.name} onChange={e => setMenuForm({...menuForm, name: e.target.value})} className={`w-full p-3 rounded-2xl border outline-none text-xs font-bold ${t.input}`} placeholder="Cth: Ayam Geprek" />
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">Harga (Rp)</label>
-                  <input type="number" value={menuForm.price} onChange={e => setMenuForm({...menuForm, price: e.target.value})} className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`} />
+                  <input type="number" value={menuForm.price} onChange={e => setMenuForm({...menuForm, price: e.target.value})} className={`w-full p-3 rounded-2xl border outline-none text-xs font-bold ${t.input}`} />
                 </div>
                 
                 <div>
@@ -1885,7 +1889,7 @@ export default function App() {
                       onClick={() => setIsCustomCategoryMode(!isCustomCategoryMode)}
                       className="text-[9px] font-bold text-orange-500 hover:underline"
                     >
-                      {isCustomCategoryMode ? 'Pilih Dropdown' : '+ Ketik Baru'}
+                      {isCustomCategoryMode ? 'Dropdown' : '+ Baru'}
                     </button>
                   </div>
 
@@ -1895,7 +1899,7 @@ export default function App() {
                       placeholder="Kategori baru..."
                       value={customCategoryInput}
                       onChange={e => setCustomCategoryInput(e.target.value)}
-                      className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`}
+                      className={`w-full p-3 rounded-2xl border outline-none text-xs font-bold ${t.input}`}
                     />
                   ) : (
                     <select 
@@ -1907,12 +1911,12 @@ export default function App() {
                           setMenuForm({...menuForm, category: e.target.value});
                         }
                       }} 
-                      className={`w-full p-3.5 rounded-2xl border outline-none font-bold ${t.input}`}
+                      className={`w-full p-3 rounded-2xl border outline-none text-xs font-bold ${t.input}`}
                     >
                       {categoriesList.map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
-                      <option value="NEW">+ Tambah Kategori Baru...</option>
+                      <option value="NEW">+ Kategori Baru...</option>
                     </select>
                   )}
                 </div>
@@ -1922,12 +1926,12 @@ export default function App() {
                 <label className="text-[10px] font-black uppercase tracking-widest mb-1.5 block opacity-70">Gambar (Upload / Emoji)</label>
                 <div className="flex gap-3 items-center">
                   <div 
-                    className={`w-16 h-16 flex items-center justify-center text-3xl rounded-2xl border-2 border-dashed cursor-pointer transition-colors hover:border-orange-500 overflow-hidden ${isDark ? 'border-zinc-700 bg-zinc-900' : 'border-slate-300 bg-slate-100'}`}
+                    className={`w-14 h-14 flex items-center justify-center text-2xl rounded-2xl border-2 border-dashed cursor-pointer transition-colors hover:border-orange-500 overflow-hidden ${isDark ? 'border-zinc-700 bg-zinc-900' : 'border-slate-300 bg-slate-100'}`}
                     onClick={() => menuImageRef.current.click()}
                   >
                     {typeof menuForm.image === 'string' && (menuForm.image.startsWith('http') || menuForm.image.startsWith('blob:') || menuForm.image.startsWith('data:')) 
                       ? <img src={menuForm.image} className="w-full h-full object-cover" alt="preview"/> 
-                      : (menuForm.image || <ImageIcon size={20} className="opacity-50"/>)}
+                      : (menuForm.image || <ImageIcon size={18} className="opacity-50"/>)}
                   </div>
                   <input type="file" ref={menuImageRef} onChange={e => handleImageUpload(e, url => setMenuForm({...menuForm, image: url}))} accept="image/*" className="hidden" />
                   <div className="flex-1">
@@ -1937,7 +1941,7 @@ export default function App() {
               </div>
             </div>
 
-            <button onClick={handleSaveMenu} className={`w-full py-4 rounded-2xl mt-8 text-sm uppercase tracking-wider ${t.btnPrimary}`}>
+            <button onClick={handleSaveMenu} className={`w-full py-3.5 rounded-2xl mt-6 text-xs font-bold uppercase tracking-wider ${t.btnPrimary}`}>
               {editingMenu ? 'Simpan Perubahan' : 'Tambahkan Menu'}
             </button>
           </div>
@@ -1949,38 +1953,38 @@ export default function App() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className={`w-full max-w-md rounded-[2rem] shadow-2xl relative flex flex-col max-h-[90vh] transition-transform slide-in-from-bottom-8 ${t.glassPanel}`}>
             
-            <div className="flex justify-between items-center p-6 border-b border-zinc-500/20">
-              <h2 className="text-xl font-black flex items-center gap-2"><CreditCard className="text-orange-500"/> Checkout</h2>
-              <button onClick={() => setShowCheckout(false)} className={`p-2.5 rounded-full border transition-colors hover:bg-zinc-500/20 active:scale-90 ${isDark ? 'border-zinc-700' : 'border-slate-300'}`}><X size={18} /></button>
+            <div className="flex justify-between items-center p-5 border-b border-zinc-500/20">
+              <h2 className="text-lg font-black flex items-center gap-2"><CreditCard className="text-orange-500" size={20}/> Checkout</h2>
+              <button onClick={() => setShowCheckout(false)} className={`p-2 rounded-full border transition-colors hover:bg-zinc-500/20 active:scale-90 ${isDark ? 'border-zinc-700' : 'border-slate-300'}`}><X size={18} /></button>
             </div>
             
-            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-              <div className={`p-5 rounded-3xl mb-6 text-center border shadow-inner flex flex-col gap-1 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="p-5 overflow-y-auto flex-1 custom-scrollbar">
+              <div className={`p-4 rounded-3xl mb-5 text-center border shadow-inner flex flex-col gap-1 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
                 <p className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted}`}>Tagihan: <span className={t.text}>{customerName}</span></p>
-                <h3 className="text-4xl font-black text-orange-500 mt-2 drop-shadow-sm">{formatIDR(totalTagihan)}</h3>
+                <h3 className="text-3xl font-black text-orange-500 mt-1 drop-shadow-sm">{formatIDR(totalTagihan)}</h3>
                 
                 {calculatedDiscount > 0 && (
-                  <p className="text-[10px] text-emerald-500 font-black mt-1 bg-emerald-500/10 self-center px-3 py-1 rounded-full">
+                  <p className="text-[10px] text-emerald-500 font-black mt-1 bg-emerald-500/10 self-center px-3 py-0.5 rounded-full">
                     Termasuk Diskon -{formatIDR(calculatedDiscount)}
                   </p>
                 )}
                 {extraCharge > 0 && (
-                  <p className="text-[10px] text-red-500 font-black mt-1 bg-red-500/10 self-center px-3 py-1 rounded-full">
+                  <p className="text-[10px] text-red-500 font-black mt-1 bg-red-500/10 self-center px-3 py-0.5 rounded-full">
                     + Biaya Tambahan {formatIDR(extraCharge)}
                   </p>
                 )}
               </div>
 
-              <label className="text-[10px] font-black uppercase tracking-widest mb-3 block opacity-70">Metode Pembayaran</label>
-              <div className="grid grid-cols-3 gap-3 mb-6">
+              <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">Metode Pembayaran</label>
+              <div className="grid grid-cols-3 gap-2.5 mb-5">
                 {['Tunai', 'QRIS', 'Transfer'].map(method => (
                   <button 
                     key={method}
                     onClick={() => { setPaymentMethod(method); setCashGiven(method==='Tunai'?0:totalTagihan); }}
-                    className={`p-4 rounded-2xl border-2 font-black text-xs transition-all duration-300 flex flex-col items-center justify-center gap-2 active:scale-95
+                    className={`p-3 rounded-2xl border-2 font-black text-xs transition-all duration-300 flex flex-col items-center justify-center gap-1.5 active:scale-95
                       ${paymentMethod === method ? 'border-orange-500 bg-orange-500/10 text-orange-500 shadow-md shadow-orange-500/20' : `border-transparent ${isDark?'bg-zinc-900':'bg-slate-100'}`}`}
                   >
-                    <span className="text-2xl drop-shadow-sm">{method==='Tunai'?'💵':method==='QRIS'?'📱':'💳'}</span> {method}
+                    <span className="text-xl drop-shadow-sm">{method==='Tunai'?'💵':method==='QRIS'?'📱':'💳'}</span> {method}
                   </button>
                 ))}
               </div>
@@ -1988,23 +1992,23 @@ export default function App() {
               {paymentMethod === 'Tunai' ? (
                 <div className="animate-in slide-in-from-bottom-4 space-y-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest mb-3 block opacity-70">Saran Nominal Cepat</label>
-                    <div className="grid grid-cols-3 gap-2.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">Saran Nominal Cepat</label>
+                    <div className="grid grid-cols-3 gap-2">
                       {[totalTagihan, 20000, 50000, 100000].map(nom => (
-                        <button key={nom} onClick={() => setCashGiven(nom)} className={`p-3 rounded-2xl border font-bold text-xs transition-all duration-300 hover:border-orange-500 hover:text-orange-500 active:scale-95 ${nom===100000?'col-span-3':''} ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                        <button key={nom} onClick={() => setCashGiven(nom)} className={`p-2.5 rounded-2xl border font-bold text-xs transition-all duration-300 hover:border-orange-500 hover:text-orange-500 active:scale-95 ${nom===100000?'col-span-3':''} ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
                           {nom === totalTagihan ? 'Uang Pas' : formatIDR(nom)}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest mb-3 block opacity-70">Atau Ketik Manual (Rp)</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest mb-2 block opacity-70">Atau Ketik Manual (Rp)</label>
                     <input 
                       type="number" 
                       value={cashGiven || ''}
                       onChange={(e) => setCashGiven(Number(e.target.value))}
                       placeholder="Cth: 35000"
-                      className={`w-full p-4 rounded-2xl border text-xl font-black outline-none transition-all ${t.input}`}
+                      className={`w-full p-3.5 rounded-2xl border text-lg font-black outline-none transition-all ${t.input}`}
                     />
                   </div>
                   
@@ -2014,39 +2018,39 @@ export default function App() {
                     </div>
                   )}
                   {isCashSufficient && cashGiven > totalTagihan && (
-                    <div className="flex justify-between items-center p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl shadow-inner">
+                    <div className="flex justify-between items-center p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl shadow-inner">
                       <span className="text-emerald-500 font-black text-xs uppercase tracking-widest">Kembalian:</span>
-                      <span className="text-emerald-500 font-black text-2xl drop-shadow-sm">{formatIDR(kembalian)}</span>
+                      <span className="text-emerald-500 font-black text-xl drop-shadow-sm">{formatIDR(kembalian)}</span>
                     </div>
                   )}
                 </div>
               ) : paymentMethod === 'QRIS' ? (
-                 <div className="animate-in slide-in-from-bottom-4 flex flex-col items-center justify-center p-4">
-                    <div className="bg-white p-3 rounded-3xl shadow-xl shadow-orange-500/20 border-4 border-orange-500 mb-4">
+                 <div className="animate-in slide-in-from-bottom-4 flex flex-col items-center justify-center p-3">
+                    <div className="bg-white p-3 rounded-3xl shadow-xl shadow-orange-500/20 border-4 border-orange-500 mb-3">
                       {settings.qrisPic ? (
-                        <img src={settings.qrisPic} className="w-48 h-48 object-contain rounded-xl" alt="QRIS" />
+                        <img src={settings.qrisPic} className="w-44 h-44 object-contain rounded-xl" alt="QRIS" />
                       ) : (
-                        <div className="w-48 h-48 flex items-center justify-center text-xs font-bold text-gray-500">Upload Foto QRIS</div>
+                        <div className="w-44 h-44 flex items-center justify-center text-xs font-bold text-gray-500">Upload Foto QRIS</div>
                       )}
                     </div>
                     <p className={`text-[10px] font-black uppercase tracking-widest ${t.textMuted} animate-pulse`}>Silakan pelanggan scan QRIS</p>
                  </div>
               ) : (
-                 <div className="animate-in slide-in-from-bottom-4 bg-blue-500/10 border border-blue-500/20 p-6 rounded-3xl text-center shadow-inner">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-3 opacity-80">Transfer ke Rekening:</p>
-                    <p className="text-3xl font-black text-blue-500 mb-2 drop-shadow-sm">{settings.bankName || 'BCA'}</p>
-                    <p className="text-xl font-black text-white bg-blue-500 px-5 py-2.5 rounded-2xl inline-block shadow-md select-all">{settings.bankAccount || '-'}</p>
+                 <div className="animate-in slide-in-from-bottom-4 bg-blue-500/10 border border-blue-500/20 p-5 rounded-3xl text-center shadow-inner">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2 opacity-80">Transfer ke Rekening:</p>
+                    <p className="text-2xl font-black text-blue-500 mb-1 drop-shadow-sm">{settings.bankName || 'BCA'}</p>
+                    <p className="text-lg font-black text-white bg-blue-500 px-4 py-2 rounded-2xl inline-block shadow-md select-all">{settings.bankAccount || '-'}</p>
                  </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-zinc-500/20">
+            <div className="p-5 border-t border-zinc-500/20">
               <button 
                 onClick={handleCheckout}
                 disabled={!isCashSufficient}
-                className={`w-full py-4 rounded-2xl text-lg flex items-center justify-center gap-2 uppercase tracking-wider ${t.btnSuccess} disabled:opacity-50 disabled:grayscale`}
+                className={`w-full py-3.5 rounded-2xl text-base font-black flex items-center justify-center gap-2 uppercase tracking-wider ${t.btnSuccess} disabled:opacity-50 disabled:grayscale`}
               >
-                <Printer size={20} /> Konfirmasi Bayar & Cetak
+                <Printer size={18} /> Konfirmasi Bayar & Cetak
               </button>
             </div>
           </div>
