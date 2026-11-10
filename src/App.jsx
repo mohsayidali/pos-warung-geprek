@@ -1073,15 +1073,16 @@ export default function App() {
               )}
             </div>
 
-            {/* AREA KANAN: SIDEBAR KERANJANG DESKTOP (LEBAR TETAP 380PX, TIDAK TERGENCET) */}
-            <div className="hidden lg:flex w-[380px] flex-shrink-0 flex-col sticky top-[100px] h-[calc(100vh-130px)]">
-              <div className={`flex-1 rounded-3xl border p-5 flex flex-col transition-colors duration-300 ${t.glassCard}`}>
-                <h2 className="text-xl font-black border-b pb-4 mb-4 flex items-center gap-3 border-zinc-500/20">
+            {/* AREA KANAN: SIDEBAR KERANJANG DESKTOP (STICKY FIXED HEIGHT PANEL) */}
+            <div className="hidden lg:flex w-[380px] flex-shrink-0 flex-col sticky top-[90px] h-[calc(100vh-115px)] z-20">
+              <div className={`flex-1 rounded-3xl border p-5 flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
+                <h2 className="text-xl font-black border-b pb-4 mb-4 flex items-center gap-3 border-zinc-500/20 flex-shrink-0">
                   <div className="p-2 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={24}/></div>
                   Keranjang Pesanan
                 </h2>
 
-                <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+                {/* SCROLLABLE ITEM LIST */}
+                <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
                   {cart.length === 0 ? (
                     <div className={`text-center h-full flex flex-col items-center justify-center ${t.textMuted}`}>
                       <ShoppingCart size={64} className="mb-4 opacity-10" />
@@ -1090,15 +1091,15 @@ export default function App() {
                     </div>
                   ) : (
                     cart.map(item => (
-                      <div key={item.cartId} className={`p-4 rounded-2xl border transition-colors ${isDark ? 'bg-zinc-950/50 border-zinc-800/50' : 'bg-slate-50/50 border-slate-200/50'} hover:border-orange-500/30`}>
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1 pr-3">
-                            <h4 className="text-sm font-bold leading-tight mb-1">{item.name}</h4>
-                            <p className="text-sm font-black text-orange-500">{formatIDR(item.price * (Number(item.qty) || 0))}</p>
+                      <div key={item.cartId} className={`p-3.5 rounded-2xl border transition-colors ${isDark ? 'bg-zinc-950/50 border-zinc-800/50' : 'bg-slate-50/50 border-slate-200/50'} hover:border-orange-500/30`}>
+                        <div className="flex justify-between items-start mb-2.5">
+                          <div className="flex-1 pr-2">
+                            <h4 className="text-xs font-bold leading-tight mb-1">{item.name}</h4>
+                            <p className="text-xs font-black text-orange-500">{formatIDR(item.price * (Number(item.qty) || 0))}</p>
                           </div>
                           
                           <div className={`flex items-center gap-1 rounded-xl p-1 border shadow-sm ${t.glassCard}`}>
-                            <button onClick={() => updateQty(item.cartId, -1)} className="p-1.5 rounded-lg hover:bg-zinc-500/10 hover:text-orange-500 transition-colors active:scale-90"><Minus size={14}/></button>
+                            <button onClick={() => updateQty(item.cartId, -1)} className="p-1 rounded-lg hover:bg-zinc-500/10 hover:text-orange-500 transition-colors active:scale-90"><Minus size={12}/></button>
                             
                             <input 
                               type="number" 
@@ -1106,11 +1107,11 @@ export default function App() {
                               value={item.qty}
                               onChange={(e) => updateQtyDirect(item.cartId, e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 1))}
                               onBlur={() => { if (!item.qty || Number(item.qty) < 1) updateQtyDirect(item.cartId, 1); }}
-                              className="w-16 text-center text-sm font-black bg-transparent outline-none text-orange-500 focus:bg-orange-500/10 rounded py-0.5 px-1 border border-transparent focus:border-orange-500/40"
+                              className="w-12 text-center text-xs font-black bg-transparent outline-none text-orange-500 focus:bg-orange-500/10 rounded py-0.5"
                             />
 
-                            <button onClick={() => updateQty(item.cartId, 1)} className="p-1.5 rounded-lg hover:bg-zinc-500/10 hover:text-orange-500 transition-colors active:scale-90"><Plus size={14}/></button>
-                            <button onClick={() => removeFromCart(item.cartId)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 ml-0.5 transition-colors active:scale-90"><Trash2 size={14}/></button>
+                            <button onClick={() => updateQty(item.cartId, 1)} className="p-1 rounded-lg hover:bg-zinc-500/10 hover:text-orange-500 transition-colors active:scale-90"><Plus size={12}/></button>
+                            <button onClick={() => removeFromCart(item.cartId)} className="p-1 rounded-lg text-red-500 hover:bg-red-500/10 ml-0.5 transition-colors active:scale-90"><Trash2 size={12}/></button>
                           </div>
                         </div>
                         <input 
@@ -1118,18 +1119,19 @@ export default function App() {
                           placeholder="Catatan (Misal: Pedas level 10)" 
                           value={item.note}
                           onChange={(e) => updateItemNote(item.cartId, e.target.value)}
-                          className={`w-full text-xs p-2.5 rounded-xl border outline-none transition-all ${t.input}`}
+                          className={`w-full text-[11px] p-2 rounded-xl border outline-none transition-all ${t.input}`}
                         />
                       </div>
                     ))
                   )}
                 </div>
 
-                <div className="pt-4 mt-4 border-t border-zinc-500/20 space-y-3">
-                  <div className="space-y-2.5">
+                {/* FIXED BOTTOM FORM & CHECKOUT BUTTON */}
+                <div className="pt-3 mt-3 border-t border-zinc-500/20 space-y-2.5 flex-shrink-0">
+                  <div className="space-y-2">
                     <div>
                       <label className="text-[10px] font-black mb-1 block uppercase tracking-wider text-orange-500">Nama Pemesan *</label>
-                      <input type="text" placeholder="Wajib diisi" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${t.input}`} />
+                      <input type="text" placeholder="Wajib diisi" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-2 text-xs rounded-xl border outline-none transition-all ${t.input}`} />
                     </div>
 
                     <div>
@@ -1157,12 +1159,12 @@ export default function App() {
                         placeholder="Dine-in / Takeaway / Ketik manual" 
                         value={deliveryNote} 
                         onChange={e => setDeliveryNote(e.target.value)} 
-                        className={`w-full p-2.5 text-xs rounded-xl border outline-none transition-all ${t.input}`} 
+                        className={`w-full p-2 text-xs rounded-xl border outline-none transition-all ${t.input}`} 
                       />
                     </div>
 
                     {cart.length > 0 && (
-                      <div className="p-3 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-2">
+                      <div className="p-2.5 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-1.5">
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-1">
                             <Tag size={12}/> Diskon Transaksi
@@ -1188,10 +1190,10 @@ export default function App() {
                         <input 
                           type="number" 
                           min="0"
-                          placeholder={discountType === 'rp' ? 'Potongan Rp (Cth: 5000)' : 'Potongan % (Cth: 10)'}
+                          placeholder={discountType === 'rp' ? 'Potongan Rp' : 'Potongan %'}
                           value={discountValue || ''}
                           onChange={e => setDiscountValue(Number(e.target.value))}
-                          className={`w-full p-2 text-xs font-bold rounded-xl border outline-none ${t.input}`}
+                          className={`w-full p-1.5 text-xs font-bold rounded-xl border outline-none ${t.input}`}
                         />
 
                         {calculatedDiscount > 0 && (
@@ -1203,15 +1205,15 @@ export default function App() {
                     )}
                   </div>
                   
-                  <div className={`flex justify-between items-center p-3 rounded-2xl border shadow-inner ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
+                  <div className={`flex justify-between items-center p-2.5 rounded-2xl border shadow-inner ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
                     <span className="font-bold text-xs uppercase tracking-wider opacity-80">Total Tagihan</span>
-                    <span className="text-xl font-black text-orange-500 drop-shadow-sm">{formatIDR(totalTagihan)}</span>
+                    <span className="text-lg font-black text-orange-500 drop-shadow-sm">{formatIDR(totalTagihan)}</span>
                   </div>
                   
                   <button 
                     disabled={cart.length === 0 || !customerName.trim()}
                     onClick={() => setShowCheckout(true)}
-                    className={`w-full py-3.5 rounded-2xl text-base flex justify-center items-center gap-2 ${t.btnPrimary} disabled:opacity-50 disabled:grayscale`}
+                    className={`w-full py-3 rounded-2xl text-sm font-black flex justify-center items-center gap-2 ${t.btnPrimary} disabled:opacity-50 disabled:grayscale`}
                   >
                     Lanjut Pembayaran
                   </button>
