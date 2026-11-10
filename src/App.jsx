@@ -1002,15 +1002,16 @@ export default function App() {
         
         {/* TAB: POS KASIR */}
         {activeTab === 'pos' && (
-          <div className="flex flex-col lg:flex-row gap-6 relative">
-            <div className="flex-1 space-y-5">
+          <div className="flex flex-col lg:flex-row gap-6 relative items-start">
+            {/* AREA KIRI: KATALOG MENU & FILTER KATEGORI */}
+            <div className="flex-1 w-full min-w-0 space-y-5">
               
               {/* TAB FILTER KATEGORI DINAMIS */}
               {menus.length > 0 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar w-full">
                   <button
                     onClick={() => setSelectedCategoryTab('Semua')}
-                    className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                    className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 active:scale-95 ${
                       selectedCategoryTab === 'Semua' 
                         ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/20' 
                         : isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-orange-500/50' : 'bg-white border border-slate-200 text-slate-700 hover:border-orange-500/50'
@@ -1024,7 +1025,7 @@ export default function App() {
                       <button
                         key={cat}
                         onClick={() => setSelectedCategoryTab(cat)}
-                        className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap active:scale-95 ${
+                        className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 active:scale-95 ${
                           selectedCategoryTab === cat 
                             ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/20' 
                             : isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-orange-500/50' : 'bg-white border border-slate-200 text-slate-700 hover:border-orange-500/50'
@@ -1044,7 +1045,8 @@ export default function App() {
                   <p className="text-xs opacity-70 mt-1 max-w-sm">Tidak ada menu pada kategori <b>"{selectedCategoryTab}"</b>.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+                /* GRID MENU DIBATASI MAKSIMAL 3 KOLOM */
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-5">
                   {filteredMenus.map((menu) => (
                     <div 
                       key={menu.id} 
@@ -1071,7 +1073,8 @@ export default function App() {
               )}
             </div>
 
-            <div className="hidden lg:flex w-[420px] flex-col sticky top-[100px] h-[calc(100vh-130px)]">
+            {/* AREA KANAN: SIDEBAR KERANJANG DESKTOP (LEBAR TETAP 380PX, TIDAK TERGENCET) */}
+            <div className="hidden lg:flex w-[380px] flex-shrink-0 flex-col sticky top-[100px] h-[calc(100vh-130px)]">
               <div className={`flex-1 rounded-3xl border p-5 flex flex-col transition-colors duration-300 ${t.glassCard}`}>
                 <h2 className="text-xl font-black border-b pb-4 mb-4 flex items-center gap-3 border-zinc-500/20">
                   <div className="p-2 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={24}/></div>
