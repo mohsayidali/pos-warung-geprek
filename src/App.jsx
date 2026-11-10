@@ -666,12 +666,21 @@ const handleSaveMenu = async () => {
     let finalCategory = menuForm.category;
     if (isCustomCategoryMode && customCategoryInput.trim()) {
       finalCategory = customCategoryInput.trim();
-      await supabase.from('categories').insert({ name: finalCategory });
-      await fetchCategories();
+      
+      // Tambah kategori baru tanpa menyertakan ID manual (biarkan Supabase auto-increment ID-nya)
+      const { error: catErr } = await supabase
+        .from('categories')
+        .insert([{ name: finalCategory }]);
+
+      if (catErr) {
+        console.error('Gagal simpan kategori:', catErr.message);
+      } else {
+        await fetchCategories();
+      }
     }
 
     if (editingMenu) {
-      // PROSES EDIT MENU EXISTING
+      // EDIT MENU EXISTING
       const { error } = await supabase.from('menus').update({
         name: menuForm.name,
         price: Number(menuForm.price),
@@ -682,7 +691,7 @@ const handleSaveMenu = async () => {
 
       if (error) alert('Gagal mengedit menu: ' + error.message);
     } else {
-      // PROSES TAMBAH MENU BARU (Biarkan Supabase yang generate ID-nya secara otomatis)
+      // TAMBAH MENU BARU
       const { error } = await supabase.from('menus').insert([{
         name: menuForm.name,
         price: Number(menuForm.price),
@@ -696,7 +705,6 @@ const handleSaveMenu = async () => {
       }
     }
 
-    // Refresh daftar menu dari Supabase & Tutup Modal
     await fetchMenus();
     setShowMenuModal(false);
   };
