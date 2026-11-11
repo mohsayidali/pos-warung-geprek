@@ -112,7 +112,6 @@ const SimpleDonutChart = ({ data, colors, isDark }) => {
 };
 
 export default function App() {
-  // PERSISTENCE STATE (TEMA & ACTIVE TAB SAVED IN LOCALSTORAGE)
   const [theme, setTheme] = useState(() => localStorage.getItem('pos_theme') || 'dark');
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('pos_active_tab') || 'pos');
   const [isReady, setIsReady] = useState(false);
@@ -125,11 +124,9 @@ export default function App() {
     localStorage.setItem('pos_active_tab', activeTab);
   }, [activeTab]);
 
-  // --- STATE SYSTEM AUTHENTICATION ---
   const [currentUser, setCurrentUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // --- STATE REALTIME CLOUD SUPABASE ---
   const [menus, setMenus] = useState([]);
   const [orders, setOrders] = useState([]);
   const [categoriesList, setCategoriesList] = useState(['Makanan', 'Minuman', 'Tambahan']);
@@ -142,7 +139,6 @@ export default function App() {
     bankAccount: '1234567890 a/n Bapak Geprek'
   });
 
-  // INITIAL AUTH & REALTIME LISTENERS
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentUser(session?.user ?? null);
@@ -290,7 +286,6 @@ export default function App() {
     });
   };
 
-  // --- STATE: PWA INSTALL PROMPT ---
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
@@ -318,12 +313,10 @@ export default function App() {
 
   const formatIDR = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
 
-  // --- THERMAL BLUETOOTH PRINTER ---
   const [btDevice, setBtDevice] = useState(null);
   const [btPrintChar, setBtPrintChar] = useState(null);
   const [btStatus, setBtStatus] = useState('Terputus');
 
-  // STATE MODAL TIKET KOKI DAPUR
   const [showKitchenTicketModal, setShowKitchenTicketModal] = useState(false);
   const [kitchenTicketModalOrder, setKitchenTicketModalOrder] = useState(null);
 
@@ -2087,7 +2080,7 @@ export default function App() {
 
       {/* MODAL STRUK TIKET KOKI DAPUR KHUSUS */}
       {showKitchenTicketModal && kitchenTicketModalOrder && (
-        <div className="fixed inset-0 bg-black/90 z-[75] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print:bg-white print:p-0 print:block">
+        <div className="fixed inset-0 bg-black/90 z-[75] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print-modal-overlay">
           <div className="w-full max-w-sm bg-white text-black p-6 relative font-mono text-xs shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-none md:rounded-lg print-area">
             
             <div className="absolute top-4 right-4 print:hidden flex gap-2">
@@ -2117,7 +2110,6 @@ export default function App() {
                     <span className="bg-black text-white px-1.5 py-0.5 rounded">{item.qty}x</span>
                     <span>{item.name}</span>
                   </div>
-                  {/* PERBAIKAN SINTAKS LINE 2135: Wrapping string >>> */}
                   {item.note && <div className="text-xs italic pl-7 mt-1 text-red-600 font-bold">{'>>>'} Catatan: {item.note}</div>}
                 </div>
               ))}
@@ -2390,7 +2382,7 @@ export default function App() {
 
       {/* MODAL STRUK PELANGGAN */}
       {showReceipt && currentOrderReceipt && (
-        <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print:bg-white print:p-0 print:block">
+        <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print-modal-overlay">
           <div className="w-full max-w-sm bg-white text-black p-8 relative font-mono text-xs shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-none md:rounded-lg print-area">
             
             <div className="absolute top-4 right-4 print:hidden flex gap-2">
@@ -2544,14 +2536,14 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL PRINT / PDF REPORT PREVIEW (FIX MULTI-PAGE A4) */}
+      {/* MODAL PRINT / PDF REPORT PREVIEW (LEBAR LAYAR KERTAS A4 & BUKAN MULTI-PAGE POTONG) */}
       {showPdfReportModal && (
-        <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col backdrop-blur-xl overflow-hidden animate-in fade-in print:bg-white print:p-0 print:block">
+        <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col backdrop-blur-xl overflow-hidden animate-in fade-in print-modal-overlay">
           
           <div className="sticky top-0 z-50 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 p-4 flex justify-between items-center text-white print:hidden flex-shrink-0">
             <div className="flex items-center gap-2">
               <Printer className="text-orange-500" size={20} />
-              <span className="font-black text-sm uppercase tracking-wider">Preview & Cetak PDF Laporan</span>
+              <span className="font-black text-sm uppercase tracking-wider">Preview & Cetak PDF Laporan (A4)</span>
             </div>
             <div className="flex items-center gap-3">
               <button 
@@ -2570,7 +2562,8 @@ export default function App() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar print:p-0 print:overflow-visible">
-            <div className="w-full max-w-4xl bg-white text-slate-800 p-6 md:p-10 relative font-sans shadow-2xl print:shadow-none mx-auto rounded-2xl print:rounded-none print:w-full print-area">
+            {/* CONTAINER DOKUMEN PROPORSI A4 FISIK DI LAYAR */}
+            <div className="w-full max-w-[210mm] bg-white text-slate-800 p-8 md:p-12 relative font-sans shadow-2xl print:shadow-none mx-auto rounded-xl print:rounded-none print:w-full print-area min-h-[297mm]">
               
               <div className="flex justify-between items-center border-b-2 border-slate-800 pb-6 mb-6">
                 <div className="flex items-center gap-4">
@@ -2587,7 +2580,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-3 gap-4 mb-6 print-page-break">
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
                   <p className="text-[10px] font-bold text-emerald-700 uppercase">Total Omset Net</p>
                   <p className="text-xl font-black text-emerald-600">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</p>
@@ -2603,7 +2596,7 @@ export default function App() {
               </div>
 
               {top5MenuFavorit.length > 0 && (
-                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl print-page-break">
                   <h3 className="font-bold text-xs uppercase text-slate-700 mb-2">🏆 Top Menu Favorit (Terlaris)</h3>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {top5MenuFavorit.slice(0, 4).map((item, i) => (
@@ -2622,7 +2615,7 @@ export default function App() {
                 const mTotal = mOrders.reduce((sum, o) => sum + o.total, 0);
 
                 return (
-                  <div key={method} className="mb-6">
+                  <div key={method} className="mb-6 print-page-break">
                     <div className="flex justify-between items-center bg-slate-800 text-white px-4 py-2 rounded-t-xl text-xs font-bold uppercase tracking-wider">
                       <span>Metode Pembayaran: {method} ({mOrders.length} Transaksi)</span>
                       <span className="text-emerald-400">Total: {formatIDR(mTotal)}</span>
@@ -2670,7 +2663,7 @@ export default function App() {
         </div>
       )}
 
-      {/* OVERRIDE PRINT FORMAT A4 CONTINUOUS & MULTI-PAGE FIX */}
+      {/* OVERRIDE PRINT FORMAT A4 (MEMBONGKAR BATAS KETINGGIAN LAYAR UNTUK MULTI-PAGE MULTI-LEMBAR RAPI) */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -2678,34 +2671,65 @@ export default function App() {
         .custom-scrollbar:hover::-webkit-scrollbar-thumb { opacity: 0.8; }
         
         @media print {
-          body * {
-            visibility: hidden !important;
+          /* Bongkar paksa seluruh kontainer induk dari html, body, #root agar mengalir alami di kertas */
+          html, body, #root, main, div {
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
+            position: static !important;
+            display: block !important;
+            background: white !important;
+            color: black !important;
+            box-shadow: none !important;
           }
-          .print-area, .print-area * {
-            visibility: visible !important;
+
+          /* Sembunyikan elemen UI umum saat mencetak */
+          header, nav, footer, .print-modal-overlay > div:first-child, button, .print\:hidden {
+            display: none !important;
           }
-          .print-area {
+
+          /* Paketkan modal pembungkus sebagai flow lembar dokumen normal */
+          .print-modal-overlay {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            color: black !important;
-            box-shadow: none !important;
-            border: none !important;
-          }
-          html, body {
             height: auto !important;
+            min-height: 100% !important;
             overflow: visible !important;
             background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            z-index: 99999 !important;
           }
+
+          /* Atur presisi elemen A4 */
+          .print-area {
+            position: relative !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 10mm !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+            color: black !important;
+            display: block !important;
+          }
+
           @page {
             size: A4 portrait;
             margin: 10mm;
           }
+
+          thead {
+            display: table-header-group !important;
+          }
+
           tr, .print-page-break {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
