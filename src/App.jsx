@@ -4,7 +4,8 @@ import {
   Trash2, Printer, ChefHat, Image as ImageIcon, Download, 
   CreditCard, X, MapPin, ChevronUp, Edit3, CheckCircle2,
   Clock, TrendingUp, Calendar, Bluetooth, Smartphone, RefreshCw,
-  AlertTriangle, ShieldAlert, Tag, Wifi, LogOut, Search, Filter
+  AlertTriangle, ShieldAlert, Tag, Wifi, LogOut, Search, Filter,
+  PieChart, Zap, Check, FileText
 } from 'lucide-react';
 import { supabase } from './supabase';
 import Login from './Login';
@@ -449,7 +450,63 @@ export default function App() {
     }
   };
 
+  // CETAK TIKET DAPUR UNTUK KOKI
+  const printKitchenTicket = async (orderTicket) => {
+    let char = btPrintChar;
+    if (!char || !btDevice?.gatt?.connected) {
+      char = await connectBluetoothPrinter();
+    }
+
+    if (!char) {
+      alert(`TIKET DAPUR [${orderTicket.id}]\nPelanggan: ${orderTicket.customerName}\nMeja/Alamat: ${orderTicket.address}\n\nItem:\n` + 
+        orderTicket.items.map(i => `- ${i.qty}x ${i.name} ${i.note ? '['+i.note+']' : ''}`).join('\n'));
+      window.print();
+      return;
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const init = '\x1B\x40';
+      const center = '\x1B\x61\x01';
+      const left = '\x1B\x61\x00';
+      const boldOn = '\x1B\x45\x01';
+      const boldOff = '\x1B\x45\x00';
+      const feed = '\x0A\x0A\x0A';
+
+      let text = init + center + boldOn + '*** TIKET DAPUR / KOKI ***\n' + boldOff;
+      text += 'ID: ' + orderTicket.id + ' | ' + new Date(orderTicket.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) + '\n';
+      text += '--------------------------------\n' + left;
+      text += boldOn + 'PEMESAN : ' + orderTicket.customerName.toUpperCase() + '\n' + boldOff;
+      text += 'MEJA/ALAMAT: ' + orderTicket.address + '\n';
+      text += '--------------------------------\n';
+      text += boldOn + 'QTY  NAMA MENU & CATATAN\n' + boldOff;
+      
+      orderTicket.items.forEach(item => {
+        text += boldOn + `${item.qty}x  ${item.name}\n` + boldOff;
+        if (item.note) text += `    >>> CATATAN: ${item.note}\n`;
+      });
+
+      text += '--------------------------------\n' + center;
+      text += 'HARAP SEGERA DISIAPKAN!\n\n' + feed;
+
+      const data = encoder.encode(text);
+      const chunkSize = 100;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+        if (char.properties.writeWithoutResponse) {
+          await char.writeValueWithoutResponse(chunk);
+        } else {
+          await char.writeValue(chunk);
+        }
+      }
+    } catch (e) {
+      window.print();
+    }
+  };
+
+  // --- STATE MODUL KASIR ---
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('Semua');
+  const [menuSearchQuery, setMenuSearchQuery] = useState(''); // REVISI: PENCARIAN MENU INSTAN
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [editingMenu, setEditingMenu] = useState(null);
   const [menuForm, setMenuForm] = useState({ name: '', price: '', category: 'Makanan', image: '🍽️', isAvailable: true });
@@ -509,7 +566,7 @@ export default function App() {
   // --- FILTER LAPORAN & DASHBOARD ---
   const [reportFilter, setReportFilter] = useState('Harian'); // Harian, Mingguan, Bulanan
   
-  // --- FILTER TABEL RIWAYAT TRANSAKSI ---
+  // --- FILTER TABEL RIWAYAT TRANSAKSI (DEFAULT HARI INI) ---
   const getTodayFormattedDate = () => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -718,10 +775,14 @@ export default function App() {
     }
   };
 
+  // REVISI: FILTER MENU SESUAI TAB KATEGORI & INPUT SEARCH BAR
   const filteredMenus = useMemo(() => {
-    if (selectedCategoryTab === 'Semua') return menus;
-    return menus.filter(m => m.category === selectedCategoryTab);
-  }, [menus, selectedCategoryTab]);
+    return menus.filter(m => {
+      const matchesCategory = selectedCategoryTab === 'Semua' || m.category === selectedCategoryTab;
+      const matchesSearch = !menuSearchQuery.trim() || m.name.toLowerCase().includes(menuSearchQuery.toLowerCase().trim());
+      return matchesCategory && matchesSearch;
+    });
+  }, [menus, selectedCategoryTab, menuSearchQuery]);
 
   const updateOrderStatus = async (id, newStatus) => {
     await supabase.from('orders').update({ status: newStatus }).eq('id', id);
@@ -744,18 +805,14 @@ export default function App() {
       const orderDateStr = `${yyyy}-${mm}-${dd}`;
       
       if (reportFilter === 'Harian') {
-        // Khusus Hari Ini Saja
         return orderDateStr === todayStr;
       } else if (reportFilter === 'Mingguan') {
-        // 7 Hari Terakhir
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(now.getDate() - 6);
         sevenDaysAgo.setHours(0,0,0,0);
         return d >= sevenDaysAgo && d <= now;
       } else if (reportFilter === 'Bulanan') {
-        // Bulan Ini Saja
-        return d.getFullYear() === now.getFullYear() &&
-               d.getMonth() === now.getMonth();
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
       }
       return true;
     });
@@ -790,6 +847,7 @@ export default function App() {
     });
   }, [orders, historyDateFilter, selectedPaymentFilter, historySearchQuery]);
 
+  // REVISI EXPORT 100% MENGIKUTI FILTER TABEL RIWAYAT / PERIODE ACTIVE
   const filteredOrdersForExport = useMemo(() => {
     return filteredHistoryOrders.filter(o => {
       return exportPaymentFilter === 'ALL' || o.method === exportPaymentFilter;
@@ -919,6 +977,10 @@ export default function App() {
   const totalOmset = useMemo(() => {
     return activeOrdersForReport.reduce((sum, o) => sum + o.total, 0);
   }, [activeOrdersForReport]);
+
+  const totalDiskonDiberikan = useMemo(() => {
+    return activeOrdersForReport.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  }, [activeOrdersForReport]);
   
   const pieData = useMemo(() => {
     return [
@@ -939,6 +1001,50 @@ export default function App() {
     });
     return Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 3);
   }, [activeOrdersForReport]);
+
+  // REVISI FITUR LAPORAN TAMBAHAN: ANALISIS JAM SIBUK (PEAK HOURS)
+  const peakHourInsight = useMemo(() => {
+    const hourCounts = {};
+    activeOrdersForReport.forEach(o => {
+      const hour = new Date(o.date).getHours();
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    });
+    const sorted = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
+    if (sorted.length === 0) return 'Belum ada transaksi';
+    const topHour = parseInt(sorted[0][0]);
+    return `Jam ${topHour.toString().padStart(2, '0')}:00 - ${(topHour + 1).toString().padStart(2, '0')}:00 (${sorted[0][1]} Trx)`;
+  }, [activeOrdersForReport]);
+
+  // REVISI FITUR LAPORAN TAMBAHAN: BREAKDOWN OMSET PER KATEGORI (%)
+  const categorySalesBreakdown = useMemo(() => {
+    const catSales = {};
+    let totalCatSales = 0;
+    activeOrdersForReport.forEach(o => {
+      o.items.forEach(item => {
+        const cat = item.category || 'Makanan';
+        const itemTotal = item.price * item.qty;
+        catSales[cat] = (catSales[cat] || 0) + itemTotal;
+        totalCatSales += itemTotal;
+      });
+    });
+    if (totalCatSales === 0) return [];
+    return Object.entries(catSales).map(([cat, total]) => ({
+      category: cat,
+      total,
+      percentage: Math.round((total / totalCatSales) * 100)
+    })).sort((a,b) => b.total - a.total);
+  }, [activeOrdersForReport]);
+
+  // REVISI DAPUR 2 KOLOM: AKUMULASI REKAP PORSI DAPUR HARI INI
+  const kitchenPrepSummary = useMemo(() => {
+    const prepMap = {};
+    orders.filter(o => o.status === 'Masuk').forEach(o => {
+      o.items.forEach(i => {
+        prepMap[i.name] = (prepMap[i.name] || 0) + Number(i.qty);
+      });
+    });
+    return Object.entries(prepMap).sort((a, b) => b[1] - a[1]);
+  }, [orders]);
 
   const isDark = theme === 'dark';
   const t = {
@@ -1054,23 +1160,45 @@ export default function App() {
         </div>
       </header>
 
-      {/* MAIN CONTENT AREA (FREEZE PANES BODY) */}
+      {/* MAIN CONTENT AREA (FREEZE PANES BODY DENGAN BOTTOM PADDING pb-28 md:pb-6 AGAR ANTI-DESAKAN HP) */}
       <main className="max-w-[1500px] w-full mx-auto p-4 md:p-5 flex-1 overflow-hidden animate-in fade-in duration-300" key={activeTab}>
         
         {/* TAB: POS KASIR */}
         {activeTab === 'pos' && (
-          /* DIREVISI BERSAMA RESPONSIVE TABLET: md:flex-row & md:w-[320px] untuk Tablet 8 inci Samsung A8 */
-          <div className="flex flex-col md:flex-row gap-5 h-full w-full overflow-hidden items-start">
+          <div className="flex flex-col md:flex-row gap-5 h-full w-full overflow-hidden items-start pb-28 md:pb-0">
             
-            {/* AREA KIRI: KATALOG MENU & FILTER KATEGORI */}
-            <div className="flex-1 w-full min-w-0 flex flex-col h-full overflow-hidden space-y-4">
+            {/* AREA KIRI: SEARCH BAR + KATALOG MENU + TAB KATEGORI LEBIH BESAR (14px) */}
+            <div className="flex-1 w-full min-w-0 flex flex-col h-full overflow-hidden space-y-3">
               
-              {/* TAB FILTER KATEGORI (DIAM DI ATAS / FROZEN) */}
+              {/* BARIS PENCARIAN MENU INSTAN (SEARCH BAR) & TAB KATEGORI */}
+              <div className="flex flex-col sm:flex-row gap-2.5 flex-shrink-0">
+                {/* SEARCH BAR INPUT */}
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3.5 top-3 opacity-50" />
+                  <input 
+                    type="text" 
+                    placeholder="Cari menu (cth: Ayam, Cumi, Es)..." 
+                    value={menuSearchQuery}
+                    onChange={e => setMenuSearchQuery(e.target.value)}
+                    className={`w-full pl-10 pr-9 py-2.5 text-xs font-bold rounded-2xl border outline-none transition-all ${t.input}`}
+                  />
+                  {menuSearchQuery && (
+                    <button 
+                      onClick={() => setMenuSearchQuery('')}
+                      className="absolute right-3 top-2.5 text-zinc-400 hover:text-orange-500"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* TAB FILTER KATEGORI (REVISI FONT DIPERBESAR KE 14px / text-sm font-bold) */}
               {menus.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar w-full flex-shrink-0">
                   <button
                     onClick={() => setSelectedCategoryTab('Semua')}
-                    className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 active:scale-95 ${
+                    className={`px-4 py-2 rounded-2xl text-sm font-bold transition-all whitespace-nowrap flex-shrink-0 active:scale-95 ${
                       selectedCategoryTab === 'Semua' 
                         ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/20' 
                         : isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-orange-500/50' : 'bg-white border border-slate-200 text-slate-700 hover:border-orange-500/50'
@@ -1084,7 +1212,7 @@ export default function App() {
                       <button
                         key={cat}
                         onClick={() => setSelectedCategoryTab(cat)}
-                        className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 active:scale-95 ${
+                        className={`px-4 py-2 rounded-2xl text-sm font-bold transition-all whitespace-nowrap flex-shrink-0 active:scale-95 ${
                           selectedCategoryTab === cat 
                             ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/20' 
                             : isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-300 hover:border-orange-500/50' : 'bg-white border border-slate-200 text-slate-700 hover:border-orange-500/50'
@@ -1097,36 +1225,36 @@ export default function App() {
                 </div>
               )}
 
-              {/* HANYA AREA GRID MENU INI YANG BISA DI-SCROLL */}
+              {/* AREA GRID MENU 3 KOLOM */}
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 {filteredMenus.length === 0 ? (
                   <div className={`p-12 text-center rounded-3xl border flex flex-col items-center justify-center ${t.glassCard}`}>
                     <ShoppingCart size={48} className="text-orange-500 opacity-40 mb-3" />
                     <h3 className="font-black text-lg">Menu Tidak Ditemukan</h3>
-                    <p className="text-xs opacity-70 mt-1 max-w-sm">Tidak ada menu pada kategori <b>"{selectedCategoryTab}"</b>.</p>
+                    <p className="text-xs opacity-70 mt-1 max-w-sm">Tidak ada menu yang sesuai dengan kata kunci pencarian atau kategori ini.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-5 pb-8">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 pb-8">
                     {filteredMenus.map((menu) => (
                       <div 
                         key={menu.id} 
                         onClick={() => menu.isAvailable && addToCart(menu)}
-                        className={`rounded-3xl border p-5 flex flex-col items-center text-center transition-all duration-300 ${t.glassCard} 
+                        className={`rounded-3xl border p-4 flex flex-col items-center text-center transition-all duration-300 ${t.glassCard} 
                           ${menu.isAvailable 
                             ? 'cursor-pointer hover:border-orange-500 hover:shadow-orange-500/20 hover:-translate-y-1 active:scale-95 active:translate-y-0' 
                             : 'opacity-50 grayscale cursor-not-allowed'}`}
                       >
-                        <div className="text-5xl mb-4 h-16 flex items-center justify-center drop-shadow-md">
+                        <div className="text-4xl mb-2.5 h-14 flex items-center justify-center drop-shadow-md">
                           {typeof menu.image === 'string' && (menu.image.startsWith('http') || menu.image.startsWith('blob:') || menu.image.startsWith('data:')) 
-                            ? <img src={menu.image} className="h-16 w-16 object-cover rounded-2xl shadow-sm" alt={menu.name} /> 
+                            ? <img src={menu.image} className="h-14 w-14 object-cover rounded-2xl shadow-sm" alt={menu.name} /> 
                             : menu.image}
                         </div>
-                        <span className={`text-[9px] font-black uppercase tracking-wider mb-2 px-2 py-0.5 rounded-full ${t.badgeOrange}`}>
+                        <span className={`text-[9px] font-black uppercase tracking-wider mb-1 px-2 py-0.5 rounded-full ${t.badgeOrange}`}>
                           {menu.category}
                         </span>
-                        <h3 className="font-bold text-sm mb-1.5 leading-tight">{menu.name}</h3>
-                        <p className="text-orange-500 font-black text-base">{formatIDR(menu.price)}</p>
-                        {!menu.isAvailable && <span className={`text-[10px] px-3 py-1 rounded-full mt-3 font-bold uppercase ${t.badgeRed}`}>Habis</span>}
+                        <h3 className="font-bold text-xs mb-1 leading-tight line-clamp-2">{menu.name}</h3>
+                        <p className="text-orange-500 font-black text-sm">{formatIDR(menu.price)}</p>
+                        {!menu.isAvailable && <span className={`text-[9px] px-2.5 py-0.5 rounded-full mt-2 font-bold uppercase ${t.badgeRed}`}>Habis</span>}
                       </div>
                     ))}
                   </div>
@@ -1134,28 +1262,33 @@ export default function App() {
               </div>
             </div>
 
-            {/* AREA KANAN: SIDEBAR KERANJANG TABLET/DESKTOP (md:flex DENGAN LEBAR MODERAT DI TAB A8) */}
-            <div className="hidden md:flex w-[320px] lg:w-[380px] flex-shrink-0 flex-col h-full z-20">
-              <div className={`flex-1 rounded-3xl border p-5 flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
-                <h2 className="text-xl font-black border-b pb-4 mb-4 flex items-center gap-3 border-zinc-500/20 flex-shrink-0">
-                  <div className="p-2 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={24}/></div>
-                  Keranjang Pesanan
+            {/* AREA KANAN: SIDEBAR KERANJANG TABLET/DESKTOP (REVISI DI-LEBARKAN KE 380px - 420px + FORM SPLIT KIRI-KANAN) */}
+            <div className="hidden md:flex w-[380px] lg:w-[420px] flex-shrink-0 flex-col h-full z-20">
+              <div className={`flex-1 rounded-3xl border p-4 flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
+                <h2 className="text-lg font-black border-b pb-3 mb-3 flex items-center justify-between border-zinc-500/20 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={20}/></div>
+                    Keranjang Pesanan
+                  </div>
+                  <span className="text-xs font-bold text-orange-500 bg-orange-500/10 px-2.5 py-1 rounded-xl">
+                    {cart.reduce((a,b)=>a + (Number(b.qty) || 0), 0)} Item
+                  </span>
                 </h2>
 
                 {/* SCROLLABLE ITEM LIST INSIDE CART */}
-                <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
                   {cart.length === 0 ? (
                     <div className={`text-center h-full flex flex-col items-center justify-center ${t.textMuted}`}>
-                      <ShoppingCart size={64} className="mb-4 opacity-10" />
-                      <p className="font-bold text-sm">Keranjang masih kosong</p>
-                      <p className="text-xs mt-1 opacity-70">Pilih menu di sebelah kiri</p>
+                      <ShoppingCart size={56} className="mb-3 opacity-10" />
+                      <p className="font-bold text-xs">Keranjang masih kosong</p>
+                      <p className="text-[10px] mt-1 opacity-70">Pilih menu di sebelah kiri</p>
                     </div>
                   ) : (
                     cart.map(item => (
-                      <div key={item.cartId} className={`p-3.5 rounded-2xl border transition-colors ${isDark ? 'bg-zinc-950/50 border-zinc-800/50' : 'bg-slate-50/50 border-slate-200/50'} hover:border-orange-500/30`}>
-                        <div className="flex justify-between items-start mb-2.5">
+                      <div key={item.cartId} className={`p-3 rounded-2xl border transition-colors ${isDark ? 'bg-zinc-950/50 border-zinc-800/50' : 'bg-slate-50/50 border-slate-200/50'} hover:border-orange-500/30`}>
+                        <div className="flex justify-between items-start mb-2">
                           <div className="flex-1 pr-2">
-                            <h4 className="text-xs font-bold leading-tight mb-1">{item.name}</h4>
+                            <h4 className="text-xs font-bold leading-tight mb-0.5">{item.name}</h4>
                             <p className="text-xs font-black text-orange-500">{formatIDR(item.price * (Number(item.qty) || 0))}</p>
                           </div>
                           
@@ -1168,7 +1301,7 @@ export default function App() {
                               value={item.qty}
                               onChange={(e) => updateQtyDirect(item.cartId, e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 1))}
                               onBlur={() => { if (!item.qty || Number(item.qty) < 1) updateQtyDirect(item.cartId, 1); }}
-                              className="w-12 text-center text-xs font-black bg-transparent outline-none text-orange-500 focus:bg-orange-500/10 rounded py-0.5"
+                              className="w-10 text-center text-xs font-black bg-transparent outline-none text-orange-500 focus:bg-orange-500/10 rounded py-0.5"
                             />
 
                             <button onClick={() => updateQty(item.cartId, 1)} className="p-1 rounded-lg hover:bg-zinc-500/10 hover:text-orange-500 transition-colors active:scale-90"><Plus size={12}/></button>
@@ -1177,37 +1310,39 @@ export default function App() {
                         </div>
                         <input 
                           type="text" 
-                          placeholder="Catatan (Misal: Pedas level 10)" 
+                          placeholder="Catatan (Pedas/Tanpa Es)" 
                           value={item.note}
                           onChange={(e) => updateItemNote(item.cartId, e.target.value)}
-                          className={`w-full text-[11px] p-2 rounded-xl border outline-none transition-all ${t.input}`}
+                          className={`w-full text-[10px] p-1.5 rounded-xl border outline-none transition-all ${t.input}`}
                         />
                       </div>
                     ))
                   )}
                 </div>
 
-                {/* FIXED BOTTOM FORM & CHECKOUT BUTTON */}
-                <div className="pt-3 mt-3 border-t border-zinc-500/20 space-y-2.5 flex-shrink-0">
-                  <div className="space-y-2">
+                {/* REVISI: FORM BOTTOM KERANJANG DI-SPLIT MENJADI 2 KOLOM MENSAMPING (KIRI & KANAN) */}
+                <div className="pt-3 mt-2 border-t border-zinc-500/20 space-y-2 flex-shrink-0">
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* BARIS 1 KIRI: NAMA PEMESAN */}
                     <div>
-                      <label className="text-[10px] font-black mb-1 block uppercase tracking-wider text-orange-500">Nama Pemesan *</label>
-                      <input type="text" placeholder="Wajib diisi" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-2 text-xs rounded-xl border outline-none transition-all ${t.input}`} />
+                      <label className="text-[9px] font-black mb-1 block uppercase tracking-wider text-orange-500">Nama Pemesan *</label>
+                      <input type="text" placeholder="Nama pelanggan" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-2 text-xs rounded-xl border outline-none transition-all ${t.input}`} />
                     </div>
 
+                    {/* BARIS 1 KANAN: ALAMAT / MEJA + TOMBOL DINE-IN/TAKEAWAY */}
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider opacity-70">Alamat / Meja</label>
+                        <label className="text-[9px] font-black uppercase tracking-wider opacity-70">Meja / Alamat</label>
                         <div className="flex gap-1">
                           {['Dine-in', 'Takeaway'].map((opt) => (
                             <button
                               key={opt}
                               type="button"
                               onClick={() => setDeliveryNote(opt)}
-                              className={`text-[9px] font-black px-2 py-0.5 rounded-md border transition-all active:scale-95 ${
+                              className={`text-[8px] font-black px-1.5 py-0.5 rounded border transition-all active:scale-95 ${
                                 deliveryNote === opt 
-                                  ? 'bg-orange-500 text-white border-orange-500 shadow-sm' 
-                                  : isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:border-orange-500/50' : 'bg-slate-200 text-slate-700 border-slate-300 hover:border-orange-500/50'
+                                  ? 'bg-orange-500 text-white border-orange-500' 
+                                  : isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-slate-200 text-slate-700 border-slate-300'
                               }`}
                             >
                               {opt}
@@ -1217,67 +1352,54 @@ export default function App() {
                       </div>
                       <input 
                         type="text" 
-                        placeholder="Dine-in / Takeaway / Ketik manual" 
+                        placeholder="Ket. Meja / Status" 
                         value={deliveryNote} 
                         onChange={e => setDeliveryNote(e.target.value)} 
                         className={`w-full p-2 text-xs rounded-xl border outline-none transition-all ${t.input}`} 
                       />
                     </div>
+                  </div>
 
-                    {cart.length > 0 && (
-                      <div className="p-2.5 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-1.5">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-1">
-                            <Tag size={12}/> Diskon Transaksi
-                          </span>
-                          <div className="flex border rounded-lg overflow-hidden text-[9px] font-bold">
-                            <button 
-                              type="button" 
-                              onClick={() => setDiscountType('rp')}
-                              className={`px-2 py-0.5 ${discountType === 'rp' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
-                            >
-                              Rp
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => setDiscountType('percent')}
-                              className={`px-2 py-0.5 ${discountType === 'percent' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
-                            >
-                              %
-                            </button>
-                          </div>
+                  {/* BARIS 2: SPLIT KIRI (DISKON) & KANAN (TOTAL TAGIHAN & BAYAR) */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {/* KIRI: DISKON */}
+                    <div className="p-2 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-0.5">
+                          <Tag size={10}/> Diskon
+                        </span>
+                        <div className="flex border rounded overflow-hidden text-[8px] font-bold">
+                          <button type="button" onClick={() => setDiscountType('rp')} className={`px-1.5 py-0.5 ${discountType === 'rp' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Rp</button>
+                          <button type="button" onClick={() => setDiscountType('percent')} className={`px-1.5 py-0.5 ${discountType === 'percent' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>%</button>
                         </div>
-
-                        <input 
-                          type="number" 
-                          min="0"
-                          placeholder={discountType === 'rp' ? 'Potongan Rp' : 'Potongan %'}
-                          value={discountValue || ''}
-                          onChange={e => setDiscountValue(Number(e.target.value))}
-                          className={`w-full p-1.5 text-xs font-bold rounded-xl border outline-none ${t.input}`}
-                        />
-
-                        {calculatedDiscount > 0 && (
-                          <p className="text-[10px] font-bold text-red-500 text-right">
-                            Hemat: -{formatIDR(calculatedDiscount)}
-                          </p>
-                        )}
                       </div>
-                    )}
+                      <input 
+                        type="number" 
+                        min="0"
+                        placeholder="Potongan"
+                        value={discountValue || ''}
+                        onChange={e => setDiscountValue(Number(e.target.value))}
+                        className={`w-full p-1.5 text-xs font-bold rounded-xl border outline-none ${t.input}`}
+                      />
+                      {calculatedDiscount > 0 && <p className="text-[9px] font-bold text-red-500 text-right">- {formatIDR(calculatedDiscount)}</p>}
+                    </div>
+
+                    {/* KANAN: TOTAL TAGIHAN & BUTTON BAYAR */}
+                    <div className="flex flex-col justify-between">
+                      <div className={`p-1.5 px-2.5 rounded-xl border text-right ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
+                        <span className="text-[8px] font-bold block uppercase opacity-70">Total Net</span>
+                        <span className="text-base font-black text-orange-500">{formatIDR(totalTagihan)}</span>
+                      </div>
+                      <button 
+                        disabled={cart.length === 0 || !customerName.trim()}
+                        onClick={() => setShowCheckout(true)}
+                        className={`w-full py-2.5 rounded-xl text-xs font-black flex justify-center items-center gap-1 ${t.btnPrimary} disabled:opacity-50 disabled:grayscale`}
+                      >
+                        Bayar Sekarang
+                      </button>
+                    </div>
                   </div>
-                  
-                  <div className={`flex justify-between items-center p-2.5 rounded-2xl border shadow-inner ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
-                    <span className="font-bold text-xs uppercase tracking-wider opacity-80">Total Tagihan</span>
-                    <span className="text-lg font-black text-orange-500 drop-shadow-sm">{formatIDR(totalTagihan)}</span>
-                  </div>
-                  
-                  <button 
-                    disabled={cart.length === 0 || !customerName.trim()}
-                    onClick={() => setShowCheckout(true)}
-                    className={`w-full py-3 rounded-2xl text-sm font-black flex justify-center items-center gap-2 ${t.btnPrimary} disabled:opacity-50 disabled:grayscale`}
-                  >
-                    Lanjut Pembayaran
-                  </button>
+
                 </div>
               </div>
             </div>
@@ -1287,21 +1409,21 @@ export default function App() {
               <div className="md:hidden fixed bottom-20 left-4 right-4 z-40 animate-in slide-in-from-bottom-10">
                 <button 
                   onClick={() => setIsMobileCartOpen(true)}
-                  className={`w-full p-4 rounded-3xl flex justify-between items-center ${t.btnPrimary}`}
+                  className={`w-full p-3.5 rounded-3xl flex justify-between items-center ${t.btnPrimary}`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-white/20 p-3 rounded-2xl relative backdrop-blur-sm">
-                      <ShoppingCart size={24} />
-                      <span className="absolute -top-2 -right-2 bg-zinc-900 text-orange-500 text-xs font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-orange-500">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-2.5 rounded-2xl relative backdrop-blur-sm">
+                      <ShoppingCart size={20} />
+                      <span className="absolute -top-2 -right-2 bg-zinc-900 text-orange-500 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-orange-500">
                         {cart.reduce((a,b)=>a + (Number(b.qty) || 0), 0)}
                       </span>
                     </div>
                     <div className="text-left">
-                      <span className="text-[10px] block opacity-80 uppercase tracking-widest font-bold">Total Belanja</span>
-                      <span className="text-xl font-black">{formatIDR(totalTagihan)}</span>
+                      <span className="text-[9px] block opacity-80 uppercase tracking-widest font-bold">Total Belanja</span>
+                      <span className="text-base font-black">{formatIDR(totalTagihan)}</span>
                     </div>
                   </div>
-                  <ChevronUp size={28} className="animate-bounce" />
+                  <ChevronUp size={24} className="animate-bounce" />
                 </button>
               </div>
             )}
@@ -1311,104 +1433,49 @@ export default function App() {
               <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end animate-in fade-in duration-300">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileCartOpen(false)}></div>
                 <div className={`rounded-t-[2rem] relative max-h-[90vh] flex flex-col shadow-2xl transition-transform slide-in-from-bottom-full duration-300 border-t ${t.glassPanel}`}>
-                  <div className="flex justify-between items-center p-5 border-b border-zinc-500/20">
-                    <h2 className="text-xl font-black flex items-center gap-3">
-                      <div className="p-2 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={20}/></div>
-                      Keranjang
+                  <div className="flex justify-between items-center p-4 border-b border-zinc-500/20">
+                    <h2 className="text-base font-black flex items-center gap-2">
+                      <div className="p-1.5 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={18}/></div>
+                      Keranjang Pesanan
                     </h2>
-                    <button onClick={() => setIsMobileCartOpen(false)} className={`p-2.5 rounded-full border transition-colors hover:bg-zinc-500/20 active:scale-90 ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-slate-100 border-slate-300'}`}><X size={20} /></button>
+                    <button onClick={() => setIsMobileCartOpen(false)} className={`p-2 rounded-full border transition-colors ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-slate-100 border-slate-300'}`}><X size={18} /></button>
                   </div>
                   
-                  <div className="p-5 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+                  <div className="p-4 flex-1 overflow-y-auto space-y-3 custom-scrollbar">
                     {cart.map(item => (
-                      <div key={item.cartId} className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                        <div className="flex justify-between items-start mb-3">
+                      <div key={item.cartId} className={`p-3 rounded-2xl border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex justify-between items-start mb-2">
                           <div className="flex-1 pr-2">
-                            <h4 className="text-sm font-bold leading-tight mb-1">{item.name}</h4>
-                            <p className="text-sm font-black text-orange-500">{formatIDR(item.price * (Number(item.qty) || 0))}</p>
+                            <h4 className="text-xs font-bold leading-tight mb-0.5">{item.name}</h4>
+                            <p className="text-xs font-black text-orange-500">{formatIDR(item.price * (Number(item.qty) || 0))}</p>
                           </div>
                           <div className={`flex items-center gap-1 rounded-xl p-1 border shadow-sm ${t.glassCard}`}>
-                            <button onClick={() => updateQty(item.cartId, -1)} className="p-1.5 active:scale-90"><Minus size={14}/></button>
+                            <button onClick={() => updateQty(item.cartId, -1)} className="p-1 active:scale-90"><Minus size={12}/></button>
                             <input 
                               type="number" 
                               min="1"
                               value={item.qty}
                               onChange={(e) => updateQtyDirect(item.cartId, e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 1))}
                               onBlur={() => { if (!item.qty || Number(item.qty) < 1) updateQtyDirect(item.cartId, 1); }}
-                              className="w-14 text-center text-sm font-black bg-transparent outline-none text-orange-500 focus:bg-orange-500/10 rounded py-0.5"
+                              className="w-10 text-center text-xs font-black bg-transparent outline-none text-orange-500"
                             />
-                            <button onClick={() => updateQty(item.cartId, 1)} className="p-1.5 active:scale-90"><Plus size={14}/></button>
+                            <button onClick={() => updateQty(item.cartId, 1)} className="p-1 active:scale-90"><Plus size={12}/></button>
                           </div>
                         </div>
-                        <input type="text" placeholder="Catatan opsional..." value={item.note} onChange={(e) => updateItemNote(item.cartId, e.target.value)} className={`w-full text-xs p-3 rounded-xl border outline-none ${t.input}`} />
+                        <input type="text" placeholder="Catatan opsional..." value={item.note} onChange={(e) => updateItemNote(item.cartId, e.target.value)} className={`w-full text-xs p-2 rounded-xl border outline-none ${t.input}`} />
                       </div>
                     ))}
                   </div>
                   
-                  <div className={`p-5 border-t shadow-[0_-10px_20px_rgba(0,0,0,0.05)] ${isDark ? 'bg-zinc-950' : 'bg-white'}`}>
-                    <div className="space-y-3 mb-3">
-                      <input type="text" placeholder="Nama Pemesan *" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-3.5 text-sm font-bold rounded-xl border outline-none ${t.input}`} />
-                      
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-[10px] font-bold opacity-70 uppercase">Alamat / Meja</span>
-                          <div className="flex gap-1.5">
-                            {['Dine-in', 'Takeaway'].map((opt) => (
-                              <button
-                                key={opt}
-                                type="button"
-                                onClick={() => setDeliveryNote(opt)}
-                                className={`text-[9px] font-black px-2 py-0.5 rounded-md border transition-all active:scale-95 ${
-                                  deliveryNote === opt 
-                                    ? 'bg-orange-500 text-white border-orange-500' 
-                                    : isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-slate-200 text-slate-700 border-slate-300'
-                                }`}
-                              >
-                                {opt}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <input type="text" placeholder="Dine-in / Takeaway / Ketik manual" value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} className={`w-full p-3 text-sm rounded-xl border outline-none ${t.input}`} />
-                      </div>
-
-                      <div className="p-3 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-1">
-                            <Tag size={12}/> Diskon Transaksi
-                          </span>
-                          <div className="flex border rounded-lg overflow-hidden text-[9px] font-bold">
-                            <button 
-                              type="button" 
-                              onClick={() => setDiscountType('rp')}
-                              className={`px-2 py-0.5 ${discountType === 'rp' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
-                            >
-                              Rp
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => setDiscountType('percent')}
-                              className={`px-2 py-0.5 ${discountType === 'percent' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
-                            >
-                              %
-                            </button>
-                          </div>
-                        </div>
-
-                        <input 
-                          type="number" 
-                          min="0"
-                          placeholder={discountType === 'rp' ? 'Potongan Rp' : 'Potongan %'}
-                          value={discountValue || ''}
-                          onChange={e => setDiscountValue(Number(e.target.value))}
-                          className={`w-full p-2.5 text-xs font-bold rounded-xl border outline-none ${t.input}`}
-                        />
-                      </div>
+                  <div className={`p-4 border-t pb-24 ${isDark ? 'bg-zinc-950' : 'bg-white'}`}>
+                    <div className="space-y-2 mb-3">
+                      <input type="text" placeholder="Nama Pemesan *" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-3 text-xs font-bold rounded-xl border outline-none ${t.input}`} />
+                      <input type="text" placeholder="Dine-in / Takeaway / Meja" value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} className={`w-full p-2.5 text-xs rounded-xl border outline-none ${t.input}`} />
                     </div>
                     <button 
                       disabled={cart.length === 0 || !customerName.trim()}
                       onClick={() => { setIsMobileCartOpen(false); setShowCheckout(true); }}
-                      className={`w-full py-4 rounded-2xl flex justify-between items-center px-6 text-lg disabled:opacity-50 disabled:grayscale ${t.btnPrimary}`}
+                      className={`w-full py-3.5 rounded-2xl flex justify-between items-center px-5 text-sm disabled:opacity-50 disabled:grayscale ${t.btnPrimary}`}
                     >
                       <span>Lanjut Bayar</span>
                       <span className="font-black bg-black/20 px-3 py-1 rounded-xl">{formatIDR(totalTagihan)}</span>
@@ -1420,99 +1487,148 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: DAPUR (KDS REALTIME) */}
+        {/* TAB: DAPUR (REVISI REDESAIN 2 KOLOM: ANTREAN AKTIF + REKAPITULASI PORSI HARIAN) */}
         {activeTab === 'dapur' && (
-          <div className="animate-in fade-in h-full flex flex-col overflow-hidden">
-            <h2 className="text-2xl font-black mb-4 flex items-center gap-3 flex-shrink-0">
-              <div className="p-2.5 bg-orange-500/10 rounded-2xl"><ChefHat className="text-orange-500" size={28}/></div>
-              Kanban Dapur
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 flex-1 overflow-hidden">
-              {['Masuk', 'Dimasak', 'Selesai'].map(statusFilter => (
-                <div key={statusFilter} className={`p-4 rounded-3xl border flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
-                  <div className={`flex justify-between items-center mb-4 pb-3 border-b border-zinc-500/20 flex-shrink-0`}>
-                    <h3 className={`font-black uppercase tracking-wider text-xs
-                      ${statusFilter === 'Masuk' ? 'text-red-500' : statusFilter === 'Dimasak' ? 'text-orange-500' : 'text-emerald-500'}
-                    `}>{statusFilter}</h3>
-                    <span className={`text-xs font-black px-3 py-1 rounded-full 
-                      ${statusFilter === 'Masuk' ? t.badgeRed : statusFilter === 'Dimasak' ? t.badgeOrange : t.badgeGreen}`}>
-                      {orders.filter(o => o.status === statusFilter).length}
-                    </span>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-1">
-                    {orders.filter(o => o.status === statusFilter).map((order) => (
-                      <div key={order.id} className={`p-4 rounded-2xl border border-l-4 shadow-sm transition-all duration-300 hover:shadow-md ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}
-                        ${statusFilter === 'Masuk' ? 'border-l-red-500' : statusFilter === 'Dimasak' ? 'border-l-orange-500' : 'border-l-emerald-500'}`}
-                      >
-                        <div className="flex justify-between items-start mb-3 border-b border-zinc-500/10 pb-3">
+          <div className="animate-in fade-in h-full flex flex-col overflow-hidden pb-28 md:pb-0">
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
+              <h2 className="text-xl md:text-2xl font-black flex items-center gap-3">
+                <div className="p-2 bg-orange-500/10 rounded-2xl"><ChefHat className="text-orange-500" size={24}/></div>
+                Dapur & Koki Warung
+              </h2>
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${t.badgeOrange}`}>
+                {orders.filter(o => o.status === 'Masuk').length} Pesanan Antrean
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 flex-1 overflow-hidden">
+              
+              {/* KOLOM KIRI (60% LEBAR LAYAR): ANTREAN PESANAN MASUK ACTIVE + TOMBOL TIKET KOKI */}
+              <div className={`lg:col-span-2 p-4 rounded-3xl border flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
+                <h3 className="font-black uppercase tracking-wider text-xs text-orange-500 mb-3 pb-2 border-b border-zinc-500/20 flex justify-between items-center">
+                  <span>📋 Antrean Pesanan Perlu Dimasak</span>
+                  <span className="text-[10px] font-bold opacity-70">Klik Tiket Koki untuk cetak resep</span>
+                </h3>
+
+                <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-1">
+                  {orders.filter(o => o.status === 'Masuk').length === 0 ? (
+                    <div className="text-center py-16 opacity-50 flex flex-col items-center">
+                      <ChefHat size={48} className="mb-2 text-orange-500 opacity-40"/>
+                      <p className="font-bold text-sm">Tidak ada antrean pesanan dapur saat ini</p>
+                    </div>
+                  ) : (
+                    orders.filter(o => o.status === 'Masuk').map((order) => (
+                      <div key={order.id} className={`p-4 rounded-2xl border-l-4 border-l-orange-500 border transition-all ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex justify-between items-start mb-3 pb-2 border-b border-zinc-500/10">
                           <div>
-                            <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-slate-600'}`}>{order.id}</span>
-                            <p className="text-base font-black mt-2 text-orange-500">{order.customerName}</p>
-                            <p className="text-[10px] font-bold uppercase opacity-70 flex items-center gap-1 mt-0.5"><MapPin size={12}/> {order.address}</p>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">{order.id}</span>
+                            <p className="text-base font-black mt-0.5">{order.customerName}</p>
+                            <p className="text-[10px] font-bold opacity-70 flex items-center gap-1"><MapPin size={10}/> {order.address}</p>
                           </div>
-                          <span className={`text-[10px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg ${t.badgeOrange}`}>
-                            <Clock size={12}/> {new Date(order.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}
-                          </span>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg ${t.badgeOrange}`}>
+                              <Clock size={12}/> {new Date(order.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}
+                            </span>
+                          </div>
                         </div>
-                        <ul className="text-sm space-y-2.5 mb-4">
+
+                        <ul className="space-y-2 mb-4">
                           {order.items.map((item, idx) => (
-                            <li key={idx} className={`p-2.5 rounded-xl border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                              <div className="font-bold flex gap-2.5">
-                                <span className="text-orange-500 bg-orange-500/10 px-2 rounded-md">{item.qty}x</span> {item.name}
+                            <li key={idx} className={`p-2 rounded-xl border text-xs font-bold ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200'}`}>
+                              <div className="flex justify-between items-center">
+                                <span><span className="text-orange-500 font-black bg-orange-500/10 px-2 py-0.5 rounded-md mr-1.5">{item.qty}x</span> {item.name}</span>
                               </div>
-                              {item.note && <div className={`text-[11px] font-bold italic mt-2 px-2.5 py-1.5 rounded-lg ${t.badgeRed}`}>Catatan: {item.note}</div>}
+                              {item.note && <div className={`text-[10px] font-bold italic mt-1.5 px-2 py-1 rounded-md ${t.badgeRed}`}>Catatan: {item.note}</div>}
                             </li>
                           ))}
                         </ul>
-                        <div className="flex gap-3 mt-auto">
-                          {statusFilter === 'Masuk' && (
-                            <button onClick={() => updateOrderStatus(order.id, 'Dimasak')} className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider active:scale-95 ${t.btnPrimary}`}>Mulai Masak</button>
-                          )}
-                          {statusFilter === 'Dimasak' && (
-                            <button onClick={() => updateOrderStatus(order.id, 'Selesai')} className={`flex-1 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider active:scale-95 ${t.btnSuccess}`}>Selesai / Antar</button>
-                          )}
+
+                        <div className="flex gap-2.5">
+                          <button 
+                            onClick={() => printKitchenTicket(order)} 
+                            className="flex-1 py-2 rounded-xl font-bold text-xs uppercase tracking-wider bg-blue-500 hover:bg-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Printer size={14}/> Cetak Tiket Koki
+                          </button>
+                          
+                          <button 
+                            onClick={() => updateOrderStatus(order.id, 'Selesai')} 
+                            className={`flex-1 py-2 rounded-xl font-bold text-xs uppercase tracking-wider active:scale-95 ${t.btnSuccess} flex items-center justify-center gap-1.5`}
+                          >
+                            <CheckCircle2 size={14}/> Tandai Selesai
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    ))
+                  )}
                 </div>
-              ))}
+              </div>
+
+              {/* KOLOM KANAN (40% LEBAR LAYAR): REKAPITULASI TOTAL PORSI DAPUR HARI INI */}
+              <div className={`p-4 rounded-3xl border flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
+                <h3 className="font-black uppercase tracking-wider text-xs text-emerald-500 mb-3 pb-2 border-b border-zinc-500/20 flex items-center justify-between">
+                  <span>🍳 Rekapitulasi Porsi Dapur</span>
+                  <span className="text-[10px] font-bold opacity-70">Antrean Aktif</span>
+                </h3>
+
+                <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
+                  {kitchenPrepSummary.length === 0 ? (
+                    <p className="text-xs opacity-50 text-center py-10">Belum ada porsi pesanan aktif</p>
+                  ) : (
+                    kitchenPrepSummary.map(([itemName, totalQty], idx) => (
+                      <div key={idx} className={`p-3 rounded-2xl border flex justify-between items-center ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                        <span className="font-bold text-xs flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-orange-500"/>
+                          {itemName}
+                        </span>
+                        <span className="font-black text-xs text-orange-500 bg-orange-500/10 px-3 py-1 rounded-xl">
+                          {totalQty} Porsi
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
         )}
 
         {/* TAB: LAPORAN */}
         {activeTab === 'laporan' && (
-          <div className="space-y-5 animate-in fade-in h-full overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-5 animate-in fade-in h-full overflow-y-auto pr-2 custom-scrollbar pb-28 md:pb-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-500/20 pb-4">
               <div>
-                <h2 className="text-2xl font-black flex items-center gap-3">
-                  <div className="p-2.5 bg-orange-500/10 rounded-2xl"><TrendingUp className="text-orange-500" size={28}/></div>
-                  Dashboard Laporan
+                <h2 className="text-xl md:text-2xl font-black flex items-center gap-3">
+                  <div className="p-2.5 bg-orange-500/10 rounded-2xl"><TrendingUp className="text-orange-500" size={24}/></div>
+                  Dashboard Laporan Penjualan
                 </h2>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 <button onClick={() => setShowExportModal(true)} className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider ${t.btnSuccess}`}>
-                  <Download size={16}/> EXPORT
+                  <Download size={16}/> EXPORT / CETAK LAPORAN
                 </button>
               </div>
             </div>
 
-            {/* RINGKASAN CARD OMSET (DIREVISI SINKRON DENGAN PERIODE DROPDOWN) */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className={`p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Omset ({reportFilter})</p>
-                <h3 className="text-2xl md:text-3xl font-black text-emerald-500 drop-shadow-sm">{formatIDR(totalOmset)}</h3>
+            {/* RINGKASAN CARD OMSET (SINKRON DENGAN PERIODE DROPDOWN) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className={`p-4 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
+                <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Omset ({reportFilter})</p>
+                <h3 className="text-xl md:text-2xl font-black text-emerald-500 drop-shadow-sm">{formatIDR(totalOmset)}</h3>
               </div>
-              <div className={`p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Transaksi ({reportFilter})</p>
-                <h3 className="text-2xl md:text-3xl font-black drop-shadow-sm">{activeOrdersForReport.length} Nota</h3>
+              <div className={`p-4 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
+                <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Transaksi</p>
+                <h3 className="text-xl md:text-2xl font-black drop-shadow-sm">{activeOrdersForReport.length} Nota</h3>
               </div>
-              <div className={`col-span-2 md:col-span-1 p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Rata-rata / Nota</p>
-                <h3 className="text-2xl md:text-3xl font-black text-orange-500 drop-shadow-sm">{formatIDR(activeOrdersForReport.length > 0 ? totalOmset / activeOrdersForReport.length : 0)}</h3>
+              <div className={`p-4 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
+                <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Diskon Diberikan</p>
+                <h3 className="text-xl md:text-2xl font-black text-red-500 drop-shadow-sm">{formatIDR(totalDiskonDiberikan)}</h3>
+              </div>
+              <div className={`p-4 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
+                <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Rata-rata / Nota</p>
+                <h3 className="text-xl md:text-2xl font-black text-orange-500 drop-shadow-sm">{formatIDR(activeOrdersForReport.length > 0 ? totalOmset / activeOrdersForReport.length : 0)}</h3>
               </div>
             </div>
 
@@ -1520,7 +1636,7 @@ export default function App() {
               <div className={`lg:col-span-2 p-5 rounded-3xl border transition-colors duration-300 flex flex-col justify-between ${t.glassCard}`}>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-black text-xs uppercase tracking-wider opacity-80 flex items-center gap-2">
-                    📈 Tren Omset <span className="text-[10px] font-bold text-orange-500">({reportFilter})</span>
+                    📈 Grafik Tren Omset <span className="text-[10px] font-bold text-orange-500">({reportFilter})</span>
                   </h3>
                   <select value={reportFilter} onChange={e => setReportFilter(e.target.value)} className={`px-3 py-1.5 rounded-xl text-xs font-bold border outline-none cursor-pointer ${t.input}`}>
                     <option value="Harian">Harian (Hari Ini)</option>
@@ -1534,6 +1650,17 @@ export default function App() {
               </div>
 
               <div className="space-y-5">
+                {/* REVISI FITUR LAPORAN TAMBAHAN: WIDGET JAM SIBUK & BREAKDOWN KATEGORI */}
+                <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+                  <h3 className="font-black mb-3 text-xs uppercase tracking-wider opacity-80 flex items-center gap-2">
+                    <Zap size={14} className="text-yellow-500"/> Analisis Jam Sibuk Warung
+                  </h3>
+                  <div className={`p-3 rounded-2xl border text-center ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-orange-50 border-orange-200'}`}>
+                    <p className="text-[10px] font-bold opacity-70 uppercase">Waktu Paling Ramai Pembeli</p>
+                    <p className="text-base font-black text-orange-500 mt-1">{peakHourInsight}</p>
+                  </div>
+                </div>
+
                 <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
                   <h3 className="font-black mb-3 text-xs uppercase tracking-wider opacity-80">💳 Metode Bayar ({reportFilter})</h3>
                   <div className="py-2">
@@ -1543,35 +1670,32 @@ export default function App() {
                       <p className="text-xs opacity-50 text-center py-6">Belum ada data</p>
                     )}
                   </div>
-                  <div className="flex justify-center gap-4 text-[10px] font-black uppercase tracking-wider mt-3">
-                    {['Tunai', 'QRIS', 'Transfer'].map((name, i) => (
-                      <span key={name} className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded-full shadow-sm" style={{backgroundColor: COLORS[i]}}/> {name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-                  <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80">🏆 Top 3 Menu ({reportFilter})</h3>
-                  <div className="space-y-3">
-                    {topMenus.length === 0 ? <p className="text-xs opacity-50 text-center py-4">Belum ada data</p> : 
-                      topMenus.map(([name, count], idx) => (
-                        <div key={idx} className={`flex justify-between items-center p-3 rounded-2xl border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                          <span className="font-bold text-xs flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded-xl flex items-center justify-center text-[10px] font-black text-white shadow-sm ${idx===0?'bg-gradient-to-br from-yellow-400 to-yellow-600':idx===1?'bg-gradient-to-br from-slate-300 to-slate-500':'bg-gradient-to-br from-amber-600 to-amber-800'}`}>{idx+1}</span>
-                            {name}
-                          </span>
-                          <span className={`font-black text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-lg ${t.badgeOrange}`}>{count}x</span>
-                        </div>
-                      ))
-                    }
-                  </div>
                 </div>
               </div>
             </div>
 
-            {/* TABEL RINCIAN TRANSAKSI (DIREVISI: DEFAULT HARI INI + DATE PICKER & SEARCH) */}
+            {/* REVISI BREAKDOWN KATEGORI OMSET */}
+            {categorySalesBreakdown.length > 0 && (
+              <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+                <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80">📊 Breakdown Omset Berdasarkan Kategori</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {categorySalesBreakdown.map(cat => (
+                    <div key={cat.category} className={`p-4 rounded-2xl border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-black text-xs">{cat.category}</span>
+                        <span className="font-bold text-[10px] text-orange-500">{cat.percentage}%</span>
+                      </div>
+                      <p className="text-lg font-black text-emerald-500">{formatIDR(cat.total)}</p>
+                      <div className="w-full bg-zinc-500/20 h-1.5 rounded-full mt-2 overflow-hidden">
+                        <div className="bg-orange-500 h-full rounded-full" style={{width: `${cat.percentage}%`}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TABEL RINCIAN TRANSAKSI (DEFAULT HARI INI + FILTER PRESET KANBAN) */}
             <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4 pb-3 border-b border-zinc-500/20">
                 <div>
@@ -1710,15 +1834,15 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: PENGATURAN */}
+        {/* TAB: PENGATURAN (REVISI: ANTI DESAK-DESAKAN LAYAR HP 2 BARIS BERTINGKAT) */}
         {activeTab === 'pengaturan' && (
-          <div className="animate-in fade-in max-w-5xl mx-auto space-y-6 h-full overflow-y-auto pr-2 custom-scrollbar">
-            <h2 className="text-2xl font-black flex items-center gap-3">
-              <div className="p-2.5 bg-orange-500/10 rounded-2xl"><Settings className="text-orange-500" size={28}/></div>
-              Pengaturan Sistem
+          <div className="animate-in fade-in max-w-5xl mx-auto space-y-6 h-full overflow-y-auto pr-2 custom-scrollbar pb-28 md:pb-6">
+            <h2 className="text-xl md:text-2xl font-black flex items-center gap-3">
+              <div className="p-2.5 bg-orange-500/10 rounded-2xl"><Settings className="text-orange-500" size={24}/></div>
+              Pengaturan Sistem Warung
             </h2>
             
-            <div className={`p-6 rounded-3xl border flex flex-col md:flex-row gap-6 items-center transition-colors duration-300 ${t.glassCard}`}>
+            <div className={`p-5 md:p-6 rounded-3xl border flex flex-col md:flex-row gap-6 items-center transition-colors duration-300 ${t.glassCard}`}>
               <div className="relative group cursor-pointer" onClick={() => profilePicRef.current.click()}>
                 <img src={settings.profilePic} className="w-24 h-24 aspect-square max-w-[96px] max-h-[96px] rounded-[2rem] object-cover border-4 border-orange-500 shadow-xl shadow-orange-500/20 group-hover:scale-105 transition-transform duration-300" alt="Profile"/>
                 <div className="absolute inset-0 bg-black/60 rounded-[2rem] flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white backdrop-blur-sm">
@@ -1739,7 +1863,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className={`p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+            <div className={`p-5 md:p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <h3 className="font-black mb-5 text-xs uppercase tracking-wider opacity-80 border-b border-zinc-500/20 pb-3">Info Pembayaran (QRIS & Transfer)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -1767,7 +1891,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className={`p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+            {/* REVISI DESAIN DAFTAR MENU DI HP: LAYOUT 2 BARIS AGAR TIDAK DESAK-DESAKAN */}
+            <div className={`p-5 md:p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4 border-b border-zinc-500/20 pb-4">
                 <h3 className="font-black text-xs uppercase tracking-wider opacity-80">Manajemen Daftar Menu</h3>
                 <button 
@@ -1780,33 +1905,39 @@ export default function App() {
               
               <div className="space-y-3">
                 {menus.map(menu => (
-                  <div key={menu.id} className={`flex justify-between items-center p-3.5 rounded-2xl border transition-colors ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 flex justify-center items-center bg-zinc-500/10 rounded-2xl text-2xl shadow-sm border border-zinc-500/20 overflow-hidden">
+                  <div key={menu.id} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-2xl border gap-3 transition-colors ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                    {/* BARIS ATAS / KIRI: FOTO & NAMA MENU */}
+                    <div className="flex items-center gap-3.5 w-full sm:w-auto">
+                      <div className="w-12 h-12 flex justify-center items-center bg-zinc-500/10 rounded-2xl text-2xl shadow-sm border border-zinc-500/20 overflow-hidden flex-shrink-0">
                         {typeof menu.image === 'string' && (menu.image.startsWith('http') || menu.image.startsWith('blob:') || menu.image.startsWith('data:')) 
                           ? <img src={menu.image} className="w-full h-full object-cover" alt={menu.name} /> 
                           : (menu.image || '🍽️')}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-black text-xs">{menu.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-black text-sm leading-tight">{menu.name}</p>
                           <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${t.badgeOrange}`}>{menu.category}</span>
                         </div>
                         <p className="text-xs text-orange-500 font-black mt-0.5">{formatIDR(menu.price)}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <button 
-                        onClick={() => toggleMenuAvailability(menu.id, menu.isAvailable)}
-                        className={`w-12 h-6 rounded-full p-0.5 transition-colors relative flex-shrink-0 shadow-inner ${menu.isAvailable ? 'bg-emerald-500' : isDark ? 'bg-zinc-700' : 'bg-slate-300'}`}
-                      >
-                        <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform absolute top-0.5 ${menu.isAvailable ? 'left-6.5' : 'left-0.5'}`}/>
-                      </button>
+
+                    {/* BARIS BAWAH / KANAN: SAKLAR STOK & TOMBOL ACTION (LEGA DI HP) */}
+                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-500/10">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold opacity-70">{menu.isAvailable ? 'Tersedia' : 'Habis'}</span>
+                        <button 
+                          onClick={() => toggleMenuAvailability(menu.id, menu.isAvailable)}
+                          className={`w-11 h-6 rounded-full p-0.5 transition-colors relative flex-shrink-0 shadow-inner ${menu.isAvailable ? 'bg-emerald-500' : isDark ? 'bg-zinc-700' : 'bg-slate-300'}`}
+                        >
+                          <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform absolute top-0.5 ${menu.isAvailable ? 'left-5.5' : 'left-0.5'}`}/>
+                        </button>
+                      </div>
                       
                       <div className={`flex border rounded-xl overflow-hidden shadow-sm ${t.glassCard}`}>
-                        <button onClick={() => handleOpenMenuModal(menu)} className="p-2.5 hover:text-orange-500 hover:bg-orange-500/10 transition-colors active:bg-orange-500/20"><Edit3 size={15}/></button>
+                        <button onClick={() => handleOpenMenuModal(menu)} className="p-2 px-3 hover:text-orange-500 hover:bg-orange-500/10 transition-colors active:bg-orange-500/20"><Edit3 size={15}/></button>
                         <div className="w-px bg-zinc-500/20"></div>
-                        <button onClick={() => handleDeleteMenu(menu.id)} className="p-2.5 hover:text-red-500 hover:bg-red-500/10 transition-colors active:bg-red-500/20"><Trash2 size={15}/></button>
+                        <button onClick={() => handleDeleteMenu(menu.id)} className="p-2 px-3 hover:text-red-500 hover:bg-red-500/10 transition-colors active:bg-red-500/20"><Trash2 size={15}/></button>
                       </div>
                     </div>
                   </div>
@@ -2244,7 +2375,7 @@ export default function App() {
               </div>
 
               <div className={`p-4 rounded-2xl border text-xs space-y-1.5 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                <div className="flex justify-between"><span className={t.textMuted}>Filter Tanggal:</span><span className="font-bold">{historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter}</span></div>
+                <div className="flex justify-between"><span className={t.textMuted}>Filter Tanggal Active:</span><span className="font-bold">{historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter}</span></div>
                 <div className="flex justify-between"><span className={t.textMuted}>Total Omset Diproses:</span><span className="font-black text-emerald-500">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</span></div>
                 <div className="flex justify-between"><span className={t.textMuted}>Jumlah Transaksi:</span><span className="font-bold">{filteredOrdersForExport.length} Nota</span></div>
               </div>
@@ -2262,14 +2393,14 @@ export default function App() {
                 onClick={() => { setShowExportModal(false); setShowPdfReportModal(true); }}
                 className="w-full py-4 rounded-2xl text-sm font-bold uppercase tracking-wider bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
               >
-                📄 Cetak / Export PDF
+                📄 Cetak / Export PDF (A4)
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL PRINT / PDF REPORT PREVIEW (DIREVISI: FIXED STICKY TOP CONTROL BAR + MULTI PAGE A4) */}
+      {/* MODAL PRINT / PDF REPORT PREVIEW (FIXED STICKY TOP CONTROL BAR + MULTI PAGE A4 SINKRON FILTER) */}
       {showPdfReportModal && (
         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col backdrop-blur-xl overflow-hidden animate-in fade-in print:bg-white print:p-0 print:block">
           
@@ -2387,7 +2518,7 @@ export default function App() {
         </div>
       )}
 
-      {/* OVERRIDE SCROLLBAR & FORMAT CETAK PRINTER A4 MULTI-PAGE */}
+      {/* OVERRIDE SCROLLBAR & FORMAT CETAK PRINTER A4 MULTI-PAGE SINKRON */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -2395,9 +2526,14 @@ export default function App() {
         .custom-scrollbar:hover::-webkit-scrollbar-thumb { opacity: 0.8; }
         
         @media print {
+          html, body, #root, div {
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+          }
           @page {
             size: A4 portrait;
-            margin: 12mm;
+            margin: 10mm;
           }
           body {
             background: white !important;
@@ -2405,6 +2541,7 @@ export default function App() {
           }
           .print-page-break {
             page-break-inside: avoid;
+            break-inside: avoid;
           }
         }
       `}} />
