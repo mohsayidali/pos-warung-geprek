@@ -2536,7 +2536,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL PRINT / PDF REPORT PREVIEW (LEBAR LAYAR KERTAS A4 & BUKAN MULTI-PAGE POTONG) */}
+      {/* MODAL PRINT / PDF REPORT PREVIEW */}
       {showPdfReportModal && (
         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col backdrop-blur-xl overflow-hidden animate-in fade-in print-modal-overlay">
           
@@ -2562,14 +2562,14 @@ export default function App() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar print:p-0 print:overflow-visible">
-            {/* CONTAINER DOKUMEN PROPORSI A4 FISIK DI LAYAR */}
-            <div className="w-full max-w-[210mm] bg-white text-slate-800 p-8 md:p-12 relative font-sans shadow-2xl print:shadow-none mx-auto rounded-xl print:rounded-none print:w-full print-area min-h-[297mm]">
+            <div className="w-full max-w-[210mm] bg-white text-slate-800 p-8 md:p-10 relative font-sans shadow-2xl print:shadow-none mx-auto rounded-xl print:rounded-none print:w-full print-area min-h-[297mm]">
               
-              <div className="flex justify-between items-center border-b-2 border-slate-800 pb-6 mb-6">
+              {/* KOP LAPORAN */}
+              <div className="flex justify-between items-center border-b-2 border-slate-800 pb-4 mb-5">
                 <div className="flex items-center gap-4">
                   <img src={settings.profilePic} className="w-12 h-12 aspect-square max-w-[48px] max-h-[48px] rounded-2xl object-cover border-2 border-orange-500 flex-shrink-0" alt="Logo" />
                   <div>
-                    <h1 className="text-2xl font-black text-slate-900 uppercase tracking-wide">{settings.storeName}</h1>
+                    <h1 className="text-xl font-black text-slate-900 uppercase tracking-wide">{settings.storeName}</h1>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Laporan Penjualan Resmi {settings.phone ? `• Telp: ${settings.phone}` : ''}</p>
                   </div>
                 </div>
@@ -2580,24 +2580,26 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 mb-6 print-page-break">
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+              {/* RINGKASAN OMSET */}
+              <div className="grid grid-cols-3 gap-3 mb-5 print-page-break">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                   <p className="text-[10px] font-bold text-emerald-700 uppercase">Total Omset Net</p>
-                  <p className="text-xl font-black text-emerald-600">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</p>
+                  <p className="text-lg font-black text-emerald-600">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</p>
                 </div>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
                   <p className="text-[10px] font-bold text-slate-600 uppercase">Total Transaksi</p>
-                  <p className="text-xl font-black text-slate-800">{filteredOrdersForExport.length} Nota</p>
+                  <p className="text-lg font-black text-slate-800">{filteredOrdersForExport.length} Nota</p>
                 </div>
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl">
                   <p className="text-[10px] font-bold text-orange-700 uppercase">Rata-rata / Nota</p>
-                  <p className="text-xl font-black text-orange-600">{formatIDR(filteredOrdersForExport.length > 0 ? filteredOrdersForExport.reduce((s,o)=>s+o.total,0)/filteredOrdersForExport.length : 0)}</p>
+                  <p className="text-lg font-black text-orange-600">{formatIDR(filteredOrdersForExport.length > 0 ? filteredOrdersForExport.reduce((s,o)=>s+o.total,0)/filteredOrdersForExport.length : 0)}</p>
                 </div>
               </div>
 
+              {/* TOP MENU FAVORIT */}
               {top5MenuFavorit.length > 0 && (
-                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl print-page-break">
-                  <h3 className="font-bold text-xs uppercase text-slate-700 mb-2">🏆 Top Menu Favorit (Terlaris)</h3>
+                <div className="mb-5 p-3 bg-slate-50 border border-slate-200 rounded-xl print-page-break">
+                  <h3 className="font-bold text-xs uppercase text-slate-700 mb-1.5">🏆 Top Menu Favorit (Terlaris)</h3>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {top5MenuFavorit.slice(0, 4).map((item, i) => (
                       <div key={i} className="flex justify-between border-b border-slate-200 pb-1">
@@ -2609,37 +2611,38 @@ export default function App() {
                 </div>
               )}
 
+              {/* TABEL PER METODE PEMBAYARAN */}
               {(exportPaymentFilter === 'ALL' ? ['Tunai', 'QRIS', 'Transfer'] : [exportPaymentFilter]).map(method => {
                 const mOrders = filteredOrdersForExport.filter(o => o.method === method);
                 if (mOrders.length === 0) return null;
                 const mTotal = mOrders.reduce((sum, o) => sum + o.total, 0);
 
                 return (
-                  <div key={method} className="mb-6 print-page-break">
-                    <div className="flex justify-between items-center bg-slate-800 text-white px-4 py-2 rounded-t-xl text-xs font-bold uppercase tracking-wider">
+                  <div key={method} className="mb-5 print-page-break">
+                    <div className="flex justify-between items-center bg-slate-800 text-white px-3 py-1.5 rounded-t-xl text-xs font-bold uppercase tracking-wider">
                       <span>Metode Pembayaran: {method} ({mOrders.length} Transaksi)</span>
                       <span className="text-emerald-400">Total: {formatIDR(mTotal)}</span>
                     </div>
                     <table className="w-full text-left text-xs border-collapse border border-slate-200">
                       <thead>
                         <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[9px] border-b border-slate-200">
-                          <th className="p-2">ID Order</th>
-                          <th className="p-2">Waktu</th>
-                          <th className="p-2">Pelanggan</th>
+                          <th className="p-2 w-[85px]">ID Order</th>
+                          <th className="p-2 w-[110px]">Waktu</th>
+                          <th className="p-2 w-[140px]">Pelanggan</th>
                           <th className="p-2">Item Pesanan</th>
-                          <th className="p-2 text-right">Diskon</th>
-                          <th className="p-2 text-right">Total Net</th>
+                          <th className="p-2 text-right w-[80px]">Diskon</th>
+                          <th className="p-2 text-right w-[95px]">Total Net</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
                         {mOrders.map(o => (
                           <tr key={o.id} className="print-page-break">
-                            <td className="p-2 font-bold text-orange-600">{o.id}</td>
-                            <td className="p-2 text-[10px] text-slate-500">{new Date(o.date).toLocaleDateString('id-ID')} {new Date(o.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
+                            <td className="p-2 font-bold text-orange-600 whitespace-nowrap">{o.id}</td>
+                            <td className="p-2 text-[10px] text-slate-500 whitespace-nowrap">{new Date(o.date).toLocaleDateString('id-ID')} {new Date(o.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
                             <td className="p-2 font-bold">{o.customerName} <span className="font-normal text-slate-500">({o.address})</span></td>
                             <td className="p-2 text-[10px]">{o.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</td>
-                            <td className="p-2 text-right text-red-600">{o.discountAmount ? `- ${formatIDR(o.discountAmount)}` : '-'}</td>
-                            <td className="p-2 text-right font-bold text-emerald-600">{formatIDR(o.total)}</td>
+                            <td className="p-2 text-right text-red-600 whitespace-nowrap">{o.discountAmount ? `- ${formatIDR(o.discountAmount)}` : '-'}</td>
+                            <td className="p-2 text-right font-bold text-emerald-600 whitespace-nowrap">{formatIDR(o.total)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2648,12 +2651,13 @@ export default function App() {
                 );
               })}
 
-              <div className="mt-10 pt-6 border-t border-slate-200 flex justify-between items-end text-xs print-page-break">
+              {/* TANDA TANGAN PENANGGUNG JAWAB */}
+              <div className="mt-8 pt-4 border-t border-slate-200 flex justify-between items-end text-xs print-page-break">
                 <div className="text-slate-400 text-[10px]">
                   Dokumen ini dihasilkan secara otomatis oleh Sistem POS Warung.
                 </div>
                 <div className="text-center w-48">
-                  <p className="text-slate-500 mb-10">Penanggung Jawab,</p>
+                  <p className="text-slate-500 mb-8">Penanggung Jawab,</p>
                   <p className="font-bold text-slate-800 underline uppercase">{settings.storeName}</p>
                 </div>
               </div>
@@ -2663,7 +2667,7 @@ export default function App() {
         </div>
       )}
 
-      {/* OVERRIDE PRINT FORMAT A4 (MEMBONGKAR BATAS KETINGGIAN LAYAR UNTUK MULTI-PAGE MULTI-LEMBAR RAPI) */}
+      {/* OVERRIDE PRINT FORMAT A4 (MENGISOLASI MODAL CETAK & MEMPERBAIKI A4 CONTINUOUS FLOW) */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -2671,25 +2675,22 @@ export default function App() {
         .custom-scrollbar:hover::-webkit-scrollbar-thumb { opacity: 0.8; }
         
         @media print {
-          /* Bongkar paksa seluruh kontainer induk dari html, body, #root agar mengalir alami di kertas */
-          html, body, #root, main, div {
+          /* 1. Sembunyikan SELURUH elemen dashboard web di luar modal cetak */
+          header, nav, main, footer, .print\:hidden {
+            display: none !important;
+          }
+
+          /* 2. Paksa html & body mengalir alami di kertas tanpa pembatasan tinggi */
+          html, body, #root {
             height: auto !important;
             min-height: 0 !important;
             max-height: none !important;
             overflow: visible !important;
-            position: static !important;
-            display: block !important;
             background: white !important;
             color: black !important;
-            box-shadow: none !important;
           }
 
-          /* Sembunyikan elemen UI umum saat mencetak */
-          header, nav, footer, .print-modal-overlay > div:first-child, button, .print\:hidden {
-            display: none !important;
-          }
-
-          /* Paketkan modal pembungkus sebagai flow lembar dokumen normal */
+          /* 3. Tampilkan HANYA overlay modal cetak PDF yang sedang aktif */
           .print-modal-overlay {
             position: absolute !important;
             left: 0 !important;
@@ -2705,7 +2706,7 @@ export default function App() {
             z-index: 99999 !important;
           }
 
-          /* Atur presisi elemen A4 */
+          /* 4. Format presisi kertas A4 */
           .print-area {
             position: relative !important;
             left: 0 !important;
@@ -2713,7 +2714,7 @@ export default function App() {
             width: 210mm !important;
             max-width: 100% !important;
             margin: 0 auto !important;
-            padding: 10mm !important;
+            padding: 5mm !important;
             box-shadow: none !important;
             border: none !important;
             background: white !important;
@@ -2723,7 +2724,7 @@ export default function App() {
 
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 8mm;
           }
 
           thead {
