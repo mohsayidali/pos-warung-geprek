@@ -323,7 +323,7 @@ export default function App() {
   const [btPrintChar, setBtPrintChar] = useState(null);
   const [btStatus, setBtStatus] = useState('Terputus');
 
-  // STATE MODAL TIKET KOKI DAPUR (REVISI GAMBAR 1)
+  // STATE MODAL TIKET KOKI DAPUR
   const [showKitchenTicketModal, setShowKitchenTicketModal] = useState(false);
   const [kitchenTicketModalOrder, setKitchenTicketModalOrder] = useState(null);
 
@@ -453,7 +453,6 @@ export default function App() {
     }
   };
 
-  // REVISI GAMBAR 1: CETAK TIKET DAPUR DENGAN MODAL STRUK RESMI
   const handleOpenKitchenTicketModal = (orderTicket) => {
     setKitchenTicketModalOrder(orderTicket);
     setShowKitchenTicketModal(true);
@@ -572,7 +571,6 @@ export default function App() {
   // --- FILTER LAPORAN & DASHBOARD ---
   const [reportFilter, setReportFilter] = useState('Harian');
   
-  // --- FILTER TABEL RIWAYAT TRANSAKSI (DEFAULT HARI INI) ---
   const getTodayFormattedDate = () => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -581,7 +579,6 @@ export default function App() {
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  // REVISI GAMBAR 3: PRESET FILTER RIWAYAT (TODAY, WEEK, MONTH, ALL)
   const [historyDateFilter, setHistoryDateFilter] = useState(getTodayFormattedDate());
   const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState('ALL');
@@ -798,7 +795,6 @@ export default function App() {
   const [exportPaymentFilter, setExportPaymentFilter] = useState('ALL');
   const [showPdfReportModal, setShowPdfReportModal] = useState(false);
 
-  // --- LOGIKA FILTER PERIODE HARIAN, MINGGUAN, BULANAN (SINKRON GRAPH + CARDS) ---
   const activeOrdersForReport = useMemo(() => {
     const now = new Date();
     const todayStr = getTodayFormattedDate();
@@ -824,7 +820,6 @@ export default function App() {
     });
   }, [orders, reportFilter]);
 
-  // REVISI GAMBAR 3: LOGIKA TABEL RIWAYAT TRANSAKSI DENGAN DUKUNGAN HARI INI, MINGGU INI, BULAN INI, SEMUA, DAN DATEPICKER
   const filteredHistoryOrders = useMemo(() => {
     const now = new Date();
     const todayStr = getTodayFormattedDate();
@@ -836,7 +831,6 @@ export default function App() {
       const dd = String(d.getDate()).padStart(2, '0');
       const orderDateStr = `${yyyy}-${mm}-${dd}`;
       
-      // Filter Tanggal
       let matchDate = true;
       if (historyDateFilter === 'WEEK') {
         const sevenDaysAgo = new Date(now);
@@ -849,10 +843,8 @@ export default function App() {
         matchDate = orderDateStr === historyDateFilter;
       }
 
-      // Filter Metode Pembayaran
       const matchPayment = selectedPaymentFilter === 'ALL' || o.method === selectedPaymentFilter;
 
-      // Filter Search (ID / Nama Pemesan)
       const query = historySearchQuery.toLowerCase().trim();
       const matchQuery = !query || 
         o.id.toLowerCase().includes(query) || 
@@ -863,7 +855,6 @@ export default function App() {
     });
   }, [orders, historyDateFilter, selectedPaymentFilter, historySearchQuery]);
 
-  // REVISI EXPORT 100% MENGIKUTI FILTER TABEL RIWAYAT
   const filteredOrdersForExport = useMemo(() => {
     return filteredHistoryOrders.filter(o => {
       return exportPaymentFilter === 'ALL' || o.method === exportPaymentFilter;
@@ -1008,7 +999,6 @@ export default function App() {
   
   const COLORS = ['#10b981', '#0ea5e9', '#f97316'];
 
-  // REVISI: TOP 5 MENU FAVORIT (LENGKAP DENGAN PORSI & OMSET)
   const top5MenuFavorit = useMemo(() => {
     const stats = {};
     activeOrdersForReport.forEach(o => {
@@ -1088,7 +1078,6 @@ export default function App() {
     badgeRed: isDark ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-red-100 text-red-700 border border-red-200',
   };
 
-  // PINTU GERBANG LOGIN
   if (checkingAuth) return null;
   if (!currentUser) {
     return (
@@ -1102,10 +1091,9 @@ export default function App() {
   }
 
   return (
-    /* FIXED SCREEN CONTAINER FREEZE PANES */
     <div className={`h-screen w-full font-sans transition-colors duration-300 ease-in-out ${t.bg} ${t.text} flex flex-col overflow-hidden ${isReady ? 'opacity-100' : 'opacity-0'}`}>
       
-      {/* HEADER (FROZEN TOP BAR) */}
+      {/* HEADER */}
       <header className={`flex justify-between items-center px-6 py-3 border-b sticky top-0 z-30 flex-shrink-0 transition-colors duration-300 ${t.glassCard} rounded-none border-t-0 border-x-0`}>
         <div className="flex items-center gap-4">
           <div className="relative group cursor-pointer" onClick={() => profilePicRef.current.click()}>
@@ -1188,7 +1176,6 @@ export default function App() {
         {activeTab === 'pos' && (
           <div className="flex flex-col md:flex-row gap-5 h-full w-full overflow-hidden items-start pb-16 md:pb-0">
             
-            {/* AREA KIRI: KATALOG MENU */}
             <div className="flex-1 w-full min-w-0 flex flex-col h-full overflow-hidden space-y-3">
               
               <div className="flex flex-col sm:flex-row gap-2.5 flex-shrink-0">
@@ -1279,7 +1266,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* AREA KANAN: SIDEBAR KERANJANG TABLET/DESKTOP */}
+            {/* SIDEBAR KERANJANG TABLET/DESKTOP */}
             <div className="hidden md:flex w-[380px] lg:w-[420px] flex-shrink-0 flex-col h-full z-20">
               <div className={`flex-1 rounded-3xl border p-4 flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
                 <h2 className="text-lg font-black border-b pb-3 mb-3 flex items-center justify-between border-zinc-500/20 flex-shrink-0">
@@ -1438,7 +1425,7 @@ export default function App() {
               </div>
             )}
 
-            {/* REVISI GAMBAR 5: MOBILE CART DRAWER LENGKAP DENGAN DINE-IN/TAKEAWAY & DISKON */}
+            {/* MOBILE CART DRAWER LENGKAP */}
             {isMobileCartOpen && (
               <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end animate-in fade-in duration-300">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileCartOpen(false)}></div>
@@ -1545,7 +1532,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: DAPUR (REVISI GAMBAR 4: PADDING DITURUNKAN KE pb-16 & ANTREAN MASUK DIBERIKAN RUANG FLEX-1) */}
+        {/* TAB: DAPUR */}
         {activeTab === 'dapur' && (
           <div className="animate-in fade-in h-full flex flex-col overflow-hidden pb-16 md:pb-0">
             <div className="flex justify-between items-center mb-3 flex-shrink-0">
@@ -1728,7 +1715,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* REVISI: TOP 5 MENU FAVORIT / TERLARIS HASIL DISKUSI */}
             <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80 flex items-center gap-2">
                 <Award className="text-orange-500" size={16}/> Top 5 Menu Favorit / Terlaris ({reportFilter})
@@ -1782,7 +1768,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TABEL RINCIAN TRANSAKSI (REVISI GAMBAR 3: PRESET BUTTON HARI INI, MINGGU INI, BULAN INI, SEMUA & DATEPICKER) */}
+            {/* TABEL RINCIAN TRANSAKSI */}
             <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4 pb-3 border-b border-zinc-500/20">
                 <div>
@@ -1803,7 +1789,6 @@ export default function App() {
                     />
                   </div>
 
-                  {/* PRESET FILTER TOMBOL HARI INI, MINGGU INI, BULAN INI, SEMUA */}
                   <div className="flex items-center gap-1 overflow-x-auto">
                     <button 
                       onClick={() => setHistoryDateFilter(getTodayFormattedDate())}
@@ -2100,10 +2085,10 @@ export default function App() {
         ))}
       </nav>
 
-      {/* REVISI GAMBAR 1: MODAL STRUK TIKET KOKI DAPUR KHUSUS */}
+      {/* MODAL STRUK TIKET KOKI DAPUR KHUSUS */}
       {showKitchenTicketModal && kitchenTicketModalOrder && (
         <div className="fixed inset-0 bg-black/90 z-[75] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print:bg-white print:p-0 print:block">
-          <div className="w-full max-w-sm bg-white text-black p-6 relative font-mono text-xs shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-none md:rounded-lg">
+          <div className="w-full max-w-sm bg-white text-black p-6 relative font-mono text-xs shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-none md:rounded-lg print-area">
             
             <div className="absolute top-4 right-4 print:hidden flex gap-2">
               <button onClick={() => printKitchenTicketBT(kitchenTicketModalOrder)} className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 active:scale-90 rounded-full transition-all" title="Cetak Bluetooth Thermal Printer"><Bluetooth size={16}/></button>
@@ -2132,6 +2117,7 @@ export default function App() {
                     <span className="bg-black text-white px-1.5 py-0.5 rounded">{item.qty}x</span>
                     <span>{item.name}</span>
                   </div>
+                  {/* PERBAIKAN SINTAKS LINE 2135: Wrapping string >>> */}
                   {item.note && <div className="text-xs italic pl-7 mt-1 text-red-600 font-bold">{'>>>'} Catatan: {item.note}</div>}
                 </div>
               ))}
@@ -2405,7 +2391,7 @@ export default function App() {
       {/* MODAL STRUK PELANGGAN */}
       {showReceipt && currentOrderReceipt && (
         <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print:bg-white print:p-0 print:block">
-          <div className="w-full max-w-sm bg-white text-black p-8 relative font-mono text-xs shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-none md:rounded-lg">
+          <div className="w-full max-w-sm bg-white text-black p-8 relative font-mono text-xs shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-none md:rounded-lg print-area">
             
             <div className="absolute top-4 right-4 print:hidden flex gap-2">
               <button onClick={() => printViaBluetooth(currentOrderReceipt)} className="p-2.5 bg-blue-100 text-blue-600 hover:bg-blue-200 active:scale-90 rounded-full transition-all" title="Cetak Bluetooth Thermal Printer"><Bluetooth size={18}/></button>
@@ -2558,7 +2544,7 @@ export default function App() {
         </div>
       )}
 
-      {/* REVISI GAMBAR 2: MODAL PRINT / PDF REPORT PREVIEW DENGAN FORMAT DOKUMEN CETAK A4 CONTINUOUS MULTI-PAGE RAPI */}
+      {/* MODAL PRINT / PDF REPORT PREVIEW (FIX MULTI-PAGE A4) */}
       {showPdfReportModal && (
         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col backdrop-blur-xl overflow-hidden animate-in fade-in print:bg-white print:p-0 print:block">
           
@@ -2584,7 +2570,7 @@ export default function App() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar print:p-0 print:overflow-visible">
-            <div className="w-full max-w-4xl bg-white text-slate-800 p-6 md:p-10 relative font-sans shadow-2xl print:shadow-none mx-auto rounded-2xl print:rounded-none print:w-full">
+            <div className="w-full max-w-4xl bg-white text-slate-800 p-6 md:p-10 relative font-sans shadow-2xl print:shadow-none mx-auto rounded-2xl print:rounded-none print:w-full print-area">
               
               <div className="flex justify-between items-center border-b-2 border-slate-800 pb-6 mb-6">
                 <div className="flex items-center gap-4">
@@ -2684,7 +2670,7 @@ export default function App() {
         </div>
       )}
 
-      {/* OVERRIDE PRINT FORMAT A4 CONTINUOUS */}
+      {/* OVERRIDE PRINT FORMAT A4 CONTINUOUS & MULTI-PAGE FIX */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -2692,19 +2678,37 @@ export default function App() {
         .custom-scrollbar:hover::-webkit-scrollbar-thumb { opacity: 0.8; }
         
         @media print {
-          html, body, #root {
-            overflow: visible !important;
-            height: auto !important;
+          body * {
+            visibility: hidden !important;
+          }
+          .print-area, .print-area * {
+            visibility: visible !important;
+          }
+          .print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: white !important;
             color: black !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
           }
           @page {
             size: A4 portrait;
             margin: 10mm;
           }
-          .print-page-break {
-            page-break-inside: avoid;
-            break-inside: avoid;
+          tr, .print-page-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}} />
