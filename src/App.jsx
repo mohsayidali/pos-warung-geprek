@@ -4,7 +4,7 @@ import {
   Trash2, Printer, ChefHat, Image as ImageIcon, Download, 
   CreditCard, X, MapPin, ChevronUp, Edit3, CheckCircle2,
   Clock, TrendingUp, Calendar, Bluetooth, Smartphone, RefreshCw,
-  AlertTriangle, ShieldAlert, Tag, Wifi, LogOut
+  AlertTriangle, ShieldAlert, Tag, Wifi, LogOut, Search, Filter
 } from 'lucide-react';
 import { supabase } from './supabase';
 import Login from './Login';
@@ -111,9 +111,18 @@ const SimpleDonutChart = ({ data, colors, isDark }) => {
 };
 
 export default function App() {
-  const [theme, setTheme] = useState('dark');
-  const [activeTab, setActiveTab] = useState('pos');
+  // PERSISTENCE STATE (TEMA & ACTIVE TAB SAVED IN LOCALSTORAGE)
+  const [theme, setTheme] = useState(() => localStorage.getItem('pos_theme') || 'dark');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('pos_active_tab') || 'pos');
   const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('pos_theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('pos_active_tab', activeTab);
+  }, [activeTab]);
 
   // --- STATE SYSTEM AUTHENTICATION ---
   const [currentUser, setCurrentUser] = useState(null);
@@ -497,36 +506,26 @@ export default function App() {
     setResetModalConfig({ isOpen: false, type: '', payload: null });
   };
 
-  const [reportFilter, setReportFilter] = useState('Harian');
+  // --- FILTER LAPORAN & DASHBOARD ---
+  const [reportFilter, setReportFilter] = useState('Harian'); // Harian, Mingguan, Bulanan
+  
+  // --- FILTER TABEL RIWAYAT TRANSAKSI ---
+  const getTodayFormattedDate = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const [historyDateFilter, setHistoryDateFilter] = useState(getTodayFormattedDate()); // DEFAULT TODAY
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState('ALL');
-  const [selectedYearFilter, setSelectedYearFilter] = useState('ALL');
-  const [selectedMonthFilter, setSelectedMonthFilter] = useState('ALL');
 
   const profilePicRef = useRef(null);
   const qrisPicRef = useRef(null);
 
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
-
-  const availableYears = useMemo(() => {
-    const setY = new Set();
-    orders.forEach(o => {
-      const d = new Date(o.date);
-      setY.add(d.getFullYear().toString());
-    });
-    return Array.from(setY).sort().reverse();
-  }, [orders]);
-
-  const activeOrdersForReport = useMemo(() => {
-    return orders.filter(o => {
-      const d = new Date(o.date);
-      const yr = d.getFullYear().toString();
-      const mo = (d.getMonth() + 1).toString().padStart(2, '0');
-      const matchYear = selectedYearFilter === 'ALL' || yr === selectedYearFilter;
-      const matchMonth = selectedMonthFilter === 'ALL' || mo === selectedMonthFilter;
-      const matchPayment = selectedPaymentFilter === 'ALL' || o.method === selectedPaymentFilter;
-      return matchYear && matchMonth && matchPayment;
-    });
-  }, [orders, selectedYearFilter, selectedMonthFilter, selectedPaymentFilter]);
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   const addToCart = (menu) => {
     if (!menu.isAvailable) return;
@@ -732,15 +731,72 @@ export default function App() {
   const [exportPaymentFilter, setExportPaymentFilter] = useState('ALL');
   const [showPdfReportModal, setShowPdfReportModal] = useState(false);
 
+  // --- LOGIKA FILTER PERIODE HARIAN, MINGGUAN, BULANAN (SINKRON GRAPH + CARDS) ---
+  const activeOrdersForReport = useMemo(() => {
+    const now = new Date();
+    const todayStr = getTodayFormattedDate();
+    
+    return orders.filter(o => {
+      const d = new Date(o.date);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const orderDateStr = `${yyyy}-${mm}-${dd}`;
+      
+      if (reportFilter === 'Harian') {
+        // Khusus Hari Ini Saja
+        return orderDateStr === todayStr;
+      } else if (reportFilter === 'Mingguan') {
+        // 7 Hari Terakhir
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(now.getDate() - 6);
+        sevenDaysAgo.setHours(0,0,0,0);
+        return d >= sevenDaysAgo && d <= now;
+      } else if (reportFilter === 'Bulanan') {
+        // Bulan Ini Saja
+        return d.getFullYear() === now.getFullYear() &&
+               d.getMonth() === now.getMonth();
+      }
+      return true;
+    });
+  }, [orders, reportFilter]);
+
+  // --- LOGIKA TABEL RIWAYAT TRANSAKSI (DEFAULT HARI INI) ---
+  const filteredHistoryOrders = useMemo(() => {
+    return orders.filter(o => {
+      const d = new Date(o.date);
+      
+      // Filter Tanggal
+      let matchDate = true;
+      if (historyDateFilter && historyDateFilter !== 'ALL') {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const orderDateStr = `${yyyy}-${mm}-${dd}`;
+        matchDate = orderDateStr === historyDateFilter;
+      }
+
+      // Filter Metode Pembayaran
+      const matchPayment = selectedPaymentFilter === 'ALL' || o.method === selectedPaymentFilter;
+
+      // Filter Search (ID / Nama Pemesan)
+      const query = historySearchQuery.toLowerCase().trim();
+      const matchQuery = !query || 
+        o.id.toLowerCase().includes(query) || 
+        o.customerName.toLowerCase().includes(query) ||
+        (o.address && o.address.toLowerCase().includes(query));
+
+      return matchDate && matchPayment && matchQuery;
+    });
+  }, [orders, historyDateFilter, selectedPaymentFilter, historySearchQuery]);
+
   const filteredOrdersForExport = useMemo(() => {
-    return activeOrdersForReport.filter(o => {
+    return filteredHistoryOrders.filter(o => {
       return exportPaymentFilter === 'ALL' || o.method === exportPaymentFilter;
     });
-  }, [activeOrdersForReport, exportPaymentFilter]);
+  }, [filteredHistoryOrders, exportPaymentFilter]);
 
   const handleExportExcel = () => {
-    const yearText = selectedYearFilter === 'ALL' ? 'Semua Tahun' : selectedYearFilter;
-    const monthText = selectedMonthFilter === 'ALL' ? 'Semua Bulan' : selectedMonthFilter;
     const paymentMethods = exportPaymentFilter === 'ALL' ? ['Tunai', 'QRIS', 'Transfer'] : [exportPaymentFilter];
 
     let tablesHtml = '';
@@ -793,7 +849,7 @@ export default function App() {
       <body style="font-family:sans-serif; padding:20px;">
         <h2 style="color:#1e293b; margin-bottom:5px;">${settings.storeName || 'Aplikasi POS'} - LAPORAN PENJUALAN</h2>
         <p style="margin-top:0; color:#64748b; font-size:12px;">
-          <b>Telp Admin:</b> ${settings.phone || '-'} | <b>Periode:</b> ${monthText} ${yearText} | <b>Filter Metode Bayar:</b> ${exportPaymentFilter} | <b>Dicetak:</b> ${new Date().toLocaleString('id-ID')}
+          <b>Telp Admin:</b> ${settings.phone || '-'} | <b>Filter Tanggal:</b> ${historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter} | <b>Filter Metode Bayar:</b> ${exportPaymentFilter} | <b>Dicetak:</b> ${new Date().toLocaleString('id-ID')}
         </p>
         <hr style="border:1px solid #e2e8f0; margin:15px 0;"/>
         <div style="margin-bottom:20px; font-size:14px;">
@@ -813,7 +869,7 @@ export default function App() {
     const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `Laporan_${(settings.storeName || 'POS').replace(/\s+/g, '_')}_${selectedYearFilter}_${selectedMonthFilter}.xlsx`;
+    link.download = `Laporan_${(settings.storeName || 'POS').replace(/\s+/g, '_')}_${historyDateFilter}.xlsx`;
     link.click();
     setShowExportModal(false);
   };
@@ -841,7 +897,7 @@ export default function App() {
     });
 
     if (Object.keys(aggregated).length === 0) {
-      if (reportFilter === 'Harian') return [{ name: '09:00', total: 0 }, { name: '12:00', total: 0 }, { name: '18:00', total: 0 }];
+      if (reportFilter === 'Harian') return [{ name: '08:00', total: 0 }, { name: '12:00', total: 0 }, { name: '16:00', total: 0 }, { name: '20:00', total: 0 }];
       if (reportFilter === 'Mingguan') return [{ name: 'Sen', total: 0 }, { name: 'Rab', total: 0 }, { name: 'Jum', total: 0 }];
       if (reportFilter === 'Bulanan') return [{ name: 'Mg 1', total: 0 }, { name: 'Mg 2', total: 0 }, { name: 'Mg 3', total: 0 }];
     }
@@ -922,7 +978,7 @@ export default function App() {
     /* FIXED SCREEN CONTAINER FREEZE PANES */
     <div className={`h-screen w-full font-sans transition-colors duration-300 ease-in-out ${t.bg} ${t.text} flex flex-col overflow-hidden ${isReady ? 'opacity-100' : 'opacity-0'}`}>
       
-      {/* HEADER (DIAM TOTAL / FROZEN TOP BAR) */}
+      {/* HEADER (FROZEN TOP BAR) */}
       <header className={`flex justify-between items-center px-6 py-3 border-b sticky top-0 z-30 flex-shrink-0 transition-colors duration-300 ${t.glassCard} rounded-none border-t-0 border-x-0`}>
         <div className="flex items-center gap-4">
           <div className="relative group cursor-pointer" onClick={() => profilePicRef.current.click()}>
@@ -1003,7 +1059,8 @@ export default function App() {
         
         {/* TAB: POS KASIR */}
         {activeTab === 'pos' && (
-          <div className="flex flex-col lg:flex-row gap-5 h-full w-full overflow-hidden items-start">
+          /* DIREVISI BERSAMA RESPONSIVE TABLET: md:flex-row & md:w-[320px] untuk Tablet 8 inci Samsung A8 */
+          <div className="flex flex-col md:flex-row gap-5 h-full w-full overflow-hidden items-start">
             
             {/* AREA KIRI: KATALOG MENU & FILTER KATEGORI */}
             <div className="flex-1 w-full min-w-0 flex flex-col h-full overflow-hidden space-y-4">
@@ -1077,8 +1134,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* AREA KANAN: SIDEBAR KERANJANG DESKTOP (FREEZE / FROZEN RIGHT PANEL) */}
-            <div className="hidden lg:flex w-[380px] flex-shrink-0 flex-col h-full z-20">
+            {/* AREA KANAN: SIDEBAR KERANJANG TABLET/DESKTOP (md:flex DENGAN LEBAR MODERAT DI TAB A8) */}
+            <div className="hidden md:flex w-[320px] lg:w-[380px] flex-shrink-0 flex-col h-full z-20">
               <div className={`flex-1 rounded-3xl border p-5 flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
                 <h2 className="text-xl font-black border-b pb-4 mb-4 flex items-center gap-3 border-zinc-500/20 flex-shrink-0">
                   <div className="p-2 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={24}/></div>
@@ -1225,9 +1282,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* FLOATING CART BUTTON (MOBILE) */}
+            {/* FLOATING CART BUTTON (HANYA LAYAR SMARTPHONE KHUSUS < 768px) */}
             {!isMobileCartOpen && cart.length > 0 && (
-              <div className="lg:hidden fixed bottom-20 left-4 right-4 z-40 animate-in slide-in-from-bottom-10">
+              <div className="md:hidden fixed bottom-20 left-4 right-4 z-40 animate-in slide-in-from-bottom-10">
                 <button 
                   onClick={() => setIsMobileCartOpen(true)}
                   className={`w-full p-4 rounded-3xl flex justify-between items-center ${t.btnPrimary}`}
@@ -1249,9 +1306,9 @@ export default function App() {
               </div>
             )}
 
-            {/* MOBILE CART DRAWER */}
+            {/* MOBILE CART DRAWER (< 768px) */}
             {isMobileCartOpen && (
-              <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end animate-in fade-in duration-300">
+              <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end animate-in fade-in duration-300">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileCartOpen(false)}></div>
                 <div className={`rounded-t-[2rem] relative max-h-[90vh] flex flex-col shadow-2xl transition-transform slide-in-from-bottom-full duration-300 border-t ${t.glassPanel}`}>
                   <div className="flex justify-between items-center p-5 border-b border-zinc-500/20">
@@ -1437,56 +1494,20 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                <div className={`flex items-center gap-2 p-1.5 rounded-2xl border transition-colors shadow-sm ${t.glassCard}`}>
-                  <span className={`text-xs font-bold pl-2 flex items-center gap-1.5 ${t.textMuted}`}>
-                    <Calendar size={14} className="text-orange-500" /> Filter:
-                  </span>
-                  
-                  <select 
-                    value={selectedYearFilter} 
-                    onChange={e => setSelectedYearFilter(e.target.value)} 
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border outline-none cursor-pointer transition-all ${isDark ? 'bg-zinc-900 text-orange-400 border-zinc-700' : 'bg-white text-orange-600 border-slate-300'}`}
-                  >
-                    <option value="ALL">Semua Tahun</option>
-                    {availableYears.map(yr => (
-                      <option key={yr} value={yr}>{yr}</option>
-                    ))}
-                  </select>
-
-                  <select 
-                    value={selectedMonthFilter} 
-                    onChange={e => setSelectedMonthFilter(e.target.value)} 
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border outline-none cursor-pointer transition-all ${isDark ? 'bg-zinc-900 text-white border-zinc-700' : 'bg-white text-slate-800 border-slate-300'}`}
-                  >
-                    <option value="ALL">Semua Bulan</option>
-                    <option value="01">Januari</option>
-                    <option value="02">Februari</option>
-                    <option value="03">Maret</option>
-                    <option value="04">April</option>
-                    <option value="05">Mei</option>
-                    <option value="06">Juni</option>
-                    <option value="07">Juli</option>
-                    <option value="08">Agustus</option>
-                    <option value="09">September</option>
-                    <option value="10">Oktober</option>
-                    <option value="11">November</option>
-                    <option value="12">Desember</option>
-                  </select>
-                </div>
-
                 <button onClick={() => setShowExportModal(true)} className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider ${t.btnSuccess}`}>
                   <Download size={16}/> EXPORT
                 </button>
               </div>
             </div>
 
+            {/* RINGKASAN CARD OMSET (DIREVISI SINKRON DENGAN PERIODE DROPDOWN) */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className={`p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Omset</p>
+                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Omset ({reportFilter})</p>
                 <h3 className="text-2xl md:text-3xl font-black text-emerald-500 drop-shadow-sm">{formatIDR(totalOmset)}</h3>
               </div>
               <div className={`p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Transaksi</p>
+                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Transaksi ({reportFilter})</p>
                 <h3 className="text-2xl md:text-3xl font-black drop-shadow-sm">{activeOrdersForReport.length} Nota</h3>
               </div>
               <div className={`col-span-2 md:col-span-1 p-5 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
@@ -1498,9 +1519,13 @@ export default function App() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
               <div className={`lg:col-span-2 p-5 rounded-3xl border transition-colors duration-300 flex flex-col justify-between ${t.glassCard}`}>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-black text-xs uppercase tracking-wider opacity-80">📈 Tren Omset</h3>
-                  <select value={reportFilter} onChange={e => setReportFilter(e.target.value)} className={`px-3 py-1 rounded-lg text-xs font-bold border outline-none ${t.input}`}>
-                    <option>Harian</option><option>Mingguan</option><option>Bulanan</option>
+                  <h3 className="font-black text-xs uppercase tracking-wider opacity-80 flex items-center gap-2">
+                    📈 Tren Omset <span className="text-[10px] font-bold text-orange-500">({reportFilter})</span>
+                  </h3>
+                  <select value={reportFilter} onChange={e => setReportFilter(e.target.value)} className={`px-3 py-1.5 rounded-xl text-xs font-bold border outline-none cursor-pointer ${t.input}`}>
+                    <option value="Harian">Harian (Hari Ini)</option>
+                    <option value="Mingguan">Mingguan (7 Hari)</option>
+                    <option value="Bulanan">Bulanan (Bulan Ini)</option>
                   </select>
                 </div>
                 <div className="h-64 md:h-80 w-full flex-1">
@@ -1510,7 +1535,7 @@ export default function App() {
 
               <div className="space-y-5">
                 <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-                  <h3 className="font-black mb-3 text-xs uppercase tracking-wider opacity-80">💳 Metode Bayar</h3>
+                  <h3 className="font-black mb-3 text-xs uppercase tracking-wider opacity-80">💳 Metode Bayar ({reportFilter})</h3>
                   <div className="py-2">
                     {pieData.length > 0 ? (
                       <SimpleDonutChart data={pieData} colors={COLORS} isDark={isDark} />
@@ -1528,7 +1553,7 @@ export default function App() {
                 </div>
 
                 <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-                  <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80">🏆 Top 3 Menu Terlaris</h3>
+                  <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80">🏆 Top 3 Menu ({reportFilter})</h3>
                   <div className="space-y-3">
                     {topMenus.length === 0 ? <p className="text-xs opacity-50 text-center py-4">Belum ada data</p> : 
                       topMenus.map(([name, count], idx) => (
@@ -1546,17 +1571,53 @@ export default function App() {
               </div>
             </div>
 
-            {/* TABEL RINCIAN TRANSAKSI */}
+            {/* TABEL RINCIAN TRANSAKSI (DIREVISI: DEFAULT HARI INI + DATE PICKER & SEARCH) */}
             <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-3 border-b border-zinc-500/20">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4 pb-3 border-b border-zinc-500/20">
                 <div>
                   <h3 className="font-black text-sm uppercase tracking-wider flex items-center gap-2">
                     📋 Riwayat Transaksi
                   </h3>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-bold ${t.textMuted}`}>Filter Bayar:</span>
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                  {/* SEARCH BAR */}
+                  <div className="relative flex-1 sm:flex-initial min-w-[160px]">
+                    <Search size={14} className="absolute left-3 top-2.5 opacity-50" />
+                    <input 
+                      type="text" 
+                      placeholder="Cari ID / Nama..." 
+                      value={historySearchQuery}
+                      onChange={e => setHistorySearchQuery(e.target.value)}
+                      className={`w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border outline-none ${t.input}`}
+                    />
+                  </div>
+
+                  {/* DATE PICKER (FILTER TANGGAL SPESIFIK) */}
+                  <div className="flex items-center gap-1.5">
+                    <input 
+                      type="date"
+                      value={historyDateFilter === 'ALL' ? '' : historyDateFilter}
+                      onChange={e => setHistoryDateFilter(e.target.value || 'ALL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border outline-none cursor-pointer ${isDark ? 'bg-zinc-900 border-zinc-700 text-orange-400' : 'bg-white border-slate-300 text-orange-600'}`}
+                    />
+                    
+                    <button 
+                      onClick={() => setHistoryDateFilter(getTodayFormattedDate())}
+                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 ${historyDateFilter === getTodayFormattedDate() ? 'bg-orange-500 text-white border-orange-500' : t.glassCard}`}
+                    >
+                      Hari Ini
+                    </button>
+
+                    <button 
+                      onClick={() => setHistoryDateFilter('ALL')}
+                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 ${historyDateFilter === 'ALL' ? 'bg-orange-500 text-white border-orange-500' : t.glassCard}`}
+                    >
+                      Semua
+                    </button>
+                  </div>
+
+                  {/* FILTER METHOD */}
                   <select 
                     value={selectedPaymentFilter} 
                     onChange={e => setSelectedPaymentFilter(e.target.value)}
@@ -1574,7 +1635,7 @@ export default function App() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className={`border-b ${isDark ? 'border-zinc-800 text-zinc-400' : 'border-slate-200 text-slate-500'} font-black uppercase text-[10px] tracking-wider`}>
-                      <th className="py-3 px-4">No. Order / Tanggal & Waktu</th>
+                      <th className="py-3 px-4">No. Order / Waktu</th>
                       <th className="py-3 px-4">Pelanggan</th>
                       <th className="py-3 px-4">Pesanan</th>
                       <th className="py-3 px-4">Diskon</th>
@@ -1584,14 +1645,14 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-500/10">
-                    {activeOrdersForReport.length === 0 ? (
+                    {filteredHistoryOrders.length === 0 ? (
                       <tr>
                         <td colSpan="7" className="text-center py-8 opacity-40 font-bold">
-                          Tidak ada transaksi pada periode ini
+                          Tidak ada transaksi untuk filter ini
                         </td>
                       </tr>
                     ) : (
-                      activeOrdersForReport.map((order) => (
+                      filteredHistoryOrders.map((order) => (
                         <tr key={order.id} className={`hover:bg-zinc-500/5 transition-colors ${isDark ? 'text-zinc-200' : 'text-slate-700'}`}>
                           <td className="py-3 px-4">
                             <span className="font-black text-orange-500 block">{order.id}</span>
@@ -1785,7 +1846,7 @@ export default function App() {
 
       </main>
 
-      {/* MOBILE BOTTOM NAV (GLASSMORPHISM STYLE) */}
+      {/* MOBILE BOTTOM NAV (KHUSUS LAYAR HP KHUSUS < 768px) */}
       <nav className={`md:hidden fixed bottom-3 left-4 right-4 rounded-3xl border flex justify-around p-1.5 z-30 backdrop-blur-2xl transition-all duration-300 shadow-2xl ${
         isDark 
           ? 'bg-zinc-900/80 border-zinc-800/80 shadow-black/60' 
@@ -2183,7 +2244,7 @@ export default function App() {
               </div>
 
               <div className={`p-4 rounded-2xl border text-xs space-y-1.5 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                <div className="flex justify-between"><span className={t.textMuted}>Periode Terpilih:</span><span className="font-bold">{selectedMonthFilter === 'ALL' ? 'Semua Bulan' : selectedMonthFilter} {selectedYearFilter === 'ALL' ? 'Semua Tahun' : selectedYearFilter}</span></div>
+                <div className="flex justify-between"><span className={t.textMuted}>Filter Tanggal:</span><span className="font-bold">{historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter}</span></div>
                 <div className="flex justify-between"><span className={t.textMuted}>Total Omset Diproses:</span><span className="font-black text-emerald-500">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</span></div>
                 <div className="flex justify-between"><span className={t.textMuted}>Jumlah Transaksi:</span><span className="font-bold">{filteredOrdersForExport.length} Nota</span></div>
               </div>
@@ -2208,104 +2269,144 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL PRINT / PDF REPORT PREVIEW */}
+      {/* MODAL PRINT / PDF REPORT PREVIEW (DIREVISI: FIXED STICKY TOP CONTROL BAR + MULTI PAGE A4) */}
       {showPdfReportModal && (
-        <div className="fixed inset-0 bg-black/90 z-[65] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print:bg-white print:p-0 print:block">
-          <div className="w-full max-w-4xl bg-white text-slate-800 p-8 relative font-sans shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-2xl print:rounded-none">
-            
-            <div className="absolute top-6 right-6 print:hidden flex gap-3">
-              <button onClick={() => window.print()} className="px-5 py-2.5 bg-orange-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-lg active:scale-95 transition-all"><Printer size={16}/> Cetak / Simpan PDF</button>
-              <button onClick={() => setShowPdfReportModal(false)} className="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-700 active:scale-90 transition-all"><X size={18}/></button>
+        <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col backdrop-blur-xl overflow-hidden animate-in fade-in print:bg-white print:p-0 print:block">
+          
+          {/* HEADER KONTROL TOMBOL CETAK & TUTUP (TERKUNCI KOKOH DI ATAS / STICKY TOP) */}
+          <div className="sticky top-0 z-50 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 p-4 flex justify-between items-center text-white print:hidden flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <Printer className="text-orange-500" size={20} />
+              <span className="font-black text-sm uppercase tracking-wider">Preview & Cetak PDF Laporan</span>
             </div>
-
-            <div className="flex justify-between items-center border-b-2 border-slate-800 pb-6 mb-6">
-              <div className="flex items-center gap-4">
-                <img src={settings.profilePic} className="w-12 h-12 aspect-square max-w-[48px] max-h-[48px] rounded-2xl object-cover border-2 border-orange-500 flex-shrink-0" alt="Logo" />
-                <div>
-                  <h1 className="text-2xl font-black text-slate-900 uppercase tracking-wide">{settings.storeName}</h1>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Laporan Penjualan Resmi {settings.phone ? `• Telp: ${settings.phone}` : ''}</p>
-                </div>
-              </div>
-              <div className="text-right text-xs">
-                <p className="font-bold text-slate-700">Periode: {selectedMonthFilter === 'ALL' ? 'Semua Bulan' : selectedMonthFilter} {selectedYearFilter === 'ALL' ? 'Semua Tahun' : selectedYearFilter}</p>
-                <p className="text-slate-500 text-[10px] mt-0.5">Filter Bayar: {exportPaymentFilter}</p>
-                <p className="text-slate-400 text-[10px]">Dicetak: {new Date().toLocaleString('id-ID')}</p>
-              </div>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => window.print()} 
+                className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-black text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-orange-500/30 active:scale-95 transition-all"
+              >
+                <Printer size={16}/> Cetak / Simpan PDF
+              </button>
+              <button 
+                onClick={() => setShowPdfReportModal(false)} 
+                className="p-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-full text-zinc-300 active:scale-90 transition-all"
+              >
+                <X size={18}/>
+              </button>
             </div>
+          </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <p className="text-[10px] font-bold text-emerald-700 uppercase">Total Omset Net</p>
-                <p className="text-xl font-black text-emerald-600">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</p>
-              </div>
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <p className="text-[10px] font-bold text-slate-600 uppercase">Total Transaksi</p>
-                <p className="text-xl font-black text-slate-800">{filteredOrdersForExport.length} Nota</p>
-              </div>
-              <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
-                <p className="text-[10px] font-bold text-orange-700 uppercase">Rata-rata / Nota</p>
-                <p className="text-xl font-black text-orange-600">{formatIDR(filteredOrdersForExport.length > 0 ? filteredOrdersForExport.reduce((s,o)=>s+o.total,0)/filteredOrdersForExport.length : 0)}</p>
-              </div>
-            </div>
-
-            {(exportPaymentFilter === 'ALL' ? ['Tunai', 'QRIS', 'Transfer'] : [exportPaymentFilter]).map(method => {
-              const mOrders = filteredOrdersForExport.filter(o => o.method === method);
-              if (mOrders.length === 0) return null;
-              const mTotal = mOrders.reduce((sum, o) => sum + o.total, 0);
-
-              return (
-                <div key={method} className="mb-8">
-                  <div className="flex justify-between items-center bg-slate-800 text-white px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider">
-                    <span>Metode Pembayaran: {method} ({mOrders.length} Transaksi)</span>
-                    <span className="text-emerald-400">Total: {formatIDR(mTotal)}</span>
+          {/* AREA DOKUMEN KERTAS BER-SCROLL MANDIRI */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar print:p-0 print:overflow-visible">
+            <div className="w-full max-w-4xl bg-white text-slate-800 p-6 md:p-10 relative font-sans shadow-2xl print:shadow-none mx-auto rounded-2xl print:rounded-none print:w-full">
+              
+              {/* HEADER LAPORAN */}
+              <div className="flex justify-between items-center border-b-2 border-slate-800 pb-6 mb-6">
+                <div className="flex items-center gap-4">
+                  <img src={settings.profilePic} className="w-12 h-12 aspect-square max-w-[48px] max-h-[48px] rounded-2xl object-cover border-2 border-orange-500 flex-shrink-0" alt="Logo" />
+                  <div>
+                    <h1 className="text-2xl font-black text-slate-900 uppercase tracking-wide">{settings.storeName}</h1>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Laporan Penjualan Resmi {settings.phone ? `• Telp: ${settings.phone}` : ''}</p>
                   </div>
-                  <table className="w-full text-left text-xs border-collapse border border-slate-200">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[9px] border-b border-slate-200">
-                        <th className="p-2.5">ID Order</th>
-                        <th className="p-2.5">Tanggal & Waktu</th>
-                        <th className="p-2.5">Pelanggan</th>
-                        <th className="p-2.5">Rincian Item</th>
-                        <th className="p-2.5 text-right">Diskon</th>
-                        <th className="p-2.5 text-right">Total Net</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {mOrders.map(o => (
-                        <tr key={o.id}>
-                          <td className="p-2.5 font-bold text-orange-600">{o.id}</td>
-                          <td className="p-2.5 text-[10px] text-slate-500">{new Date(o.date).toLocaleDateString('id-ID')} {new Date(o.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
-                          <td className="p-2.5 font-bold">{o.customerName} <span className="font-normal text-slate-500">({o.address})</span></td>
-                          <td className="p-2.5 text-[11px]">{o.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</td>
-                          <td className="p-2.5 text-right text-red-600">{o.discountAmount ? `- ${formatIDR(o.discountAmount)}` : '-'}</td>
-                          <td className="p-2.5 text-right font-bold text-emerald-600">{formatIDR(o.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
-              );
-            })}
+                <div className="text-right text-xs">
+                  <p className="font-bold text-slate-700">Tanggal: {historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter}</p>
+                  <p className="text-slate-500 text-[10px] mt-0.5">Filter Bayar: {exportPaymentFilter}</p>
+                  <p className="text-slate-400 text-[10px]">Dicetak: {new Date().toLocaleString('id-ID')}</p>
+                </div>
+              </div>
 
-            <div className="mt-12 pt-6 border-t border-slate-200 flex justify-between items-end text-xs">
-              <div className="text-slate-400 text-[10px]">
-                Dokumen ini dihasilkan secara otomatis oleh Sistem POS Warung.
+              {/* CARDS SUMMARY LAPORAN */}
+              <div className="grid grid-cols-3 gap-4 mb-8">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <p className="text-[10px] font-bold text-emerald-700 uppercase">Total Omset Net</p>
+                  <p className="text-xl font-black text-emerald-600">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</p>
+                </div>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-600 uppercase">Total Transaksi</p>
+                  <p className="text-xl font-black text-slate-800">{filteredOrdersForExport.length} Nota</p>
+                </div>
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                  <p className="text-[10px] font-bold text-orange-700 uppercase">Rata-rata / Nota</p>
+                  <p className="text-xl font-black text-orange-600">{formatIDR(filteredOrdersForExport.length > 0 ? filteredOrdersForExport.reduce((s,o)=>s+o.total,0)/filteredOrdersForExport.length : 0)}</p>
+                </div>
               </div>
-              <div className="text-center w-48">
-                <p className="text-slate-500 mb-12">Penanggung Jawab,</p>
-                <p className="font-bold text-slate-800 underline uppercase">{settings.storeName}</p>
+
+              {/* TABLE LIST MULTI-PAGE PRINT */}
+              {(exportPaymentFilter === 'ALL' ? ['Tunai', 'QRIS', 'Transfer'] : [exportPaymentFilter]).map(method => {
+                const mOrders = filteredOrdersForExport.filter(o => o.method === method);
+                if (mOrders.length === 0) return null;
+                const mTotal = mOrders.reduce((sum, o) => sum + o.total, 0);
+
+                return (
+                  <div key={method} className="mb-8 print-page-break">
+                    <div className="flex justify-between items-center bg-slate-800 text-white px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider">
+                      <span>Metode Pembayaran: {method} ({mOrders.length} Transaksi)</span>
+                      <span className="text-emerald-400">Total: {formatIDR(mTotal)}</span>
+                    </div>
+                    <table className="w-full text-left text-xs border-collapse border border-slate-200">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[9px] border-b border-slate-200">
+                          <th className="p-2.5">ID Order</th>
+                          <th className="p-2.5">Tanggal & Waktu</th>
+                          <th className="p-2.5">Pelanggan</th>
+                          <th className="p-2.5">Rincian Item</th>
+                          <th className="p-2.5 text-right">Diskon</th>
+                          <th className="p-2.5 text-right">Total Net</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {mOrders.map(o => (
+                          <tr key={o.id} className="print-page-break">
+                            <td className="p-2.5 font-bold text-orange-600">{o.id}</td>
+                            <td className="p-2.5 text-[10px] text-slate-500">{new Date(o.date).toLocaleDateString('id-ID')} {new Date(o.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
+                            <td className="p-2.5 font-bold">{o.customerName} <span className="font-normal text-slate-500">({o.address})</span></td>
+                            <td className="p-2.5 text-[11px]">{o.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</td>
+                            <td className="p-2.5 text-right text-red-600">{o.discountAmount ? `- ${formatIDR(o.discountAmount)}` : '-'}</td>
+                            <td className="p-2.5 text-right font-bold text-emerald-600">{formatIDR(o.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+
+              {/* FOOTER PENANGGUNG JAWAB */}
+              <div className="mt-12 pt-6 border-t border-slate-200 flex justify-between items-end text-xs print-page-break">
+                <div className="text-slate-400 text-[10px]">
+                  Dokumen ini dihasilkan secara otomatis oleh Sistem POS Warung.
+                </div>
+                <div className="text-center w-48">
+                  <p className="text-slate-500 mb-12">Penanggung Jawab,</p>
+                  <p className="font-bold text-slate-800 underline uppercase">{settings.storeName}</p>
+                </div>
               </div>
+
             </div>
-
           </div>
         </div>
       )}
 
+      {/* OVERRIDE SCROLLBAR & FORMAT CETAK PRINTER A4 MULTI-PAGE */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #f97316; border-radius: 10px; opacity: 0.3; }
         .custom-scrollbar:hover::-webkit-scrollbar-thumb { opacity: 0.8; }
+        
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 12mm;
+          }
+          body {
+            background: white !important;
+            color: black !important;
+          }
+          .print-page-break {
+            page-break-inside: avoid;
+          }
+        }
       `}} />
     </div>
   );

@@ -46,7 +46,7 @@ export default function Login({ onLoginSuccess, isDark, storeName, logoPic }) {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="text-[10px] font-black uppercase tracking-widest text-orange-500 block mb-1">Email Akun</label>
+            <label className="text-[10px] font-black uppercase tracking-widest text-orange-500 block mb-1">Email Akun Warung</label>
             <div className="relative flex items-center">
               <Mail size={18} className="absolute left-4 opacity-50 text-orange-500" />
               <input
