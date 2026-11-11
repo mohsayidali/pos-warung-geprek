@@ -5,7 +5,7 @@ import {
   CreditCard, X, MapPin, ChevronUp, Edit3, CheckCircle2,
   Clock, TrendingUp, Calendar, Bluetooth, Smartphone, RefreshCw,
   AlertTriangle, ShieldAlert, Tag, Wifi, LogOut, Search, Filter,
-  PieChart, Zap, Check, FileText
+  Zap, Award, FileText
 } from 'lucide-react';
 import { supabase } from './supabase';
 import Login from './Login';
@@ -323,6 +323,10 @@ export default function App() {
   const [btPrintChar, setBtPrintChar] = useState(null);
   const [btStatus, setBtStatus] = useState('Terputus');
 
+  // STATE MODAL TIKET KOKI DAPUR (REVISI GAMBAR 1)
+  const [showKitchenTicketModal, setShowKitchenTicketModal] = useState(false);
+  const [kitchenTicketModalOrder, setKitchenTicketModalOrder] = useState(null);
+
   const connectBluetoothPrinter = async () => {
     if (!navigator.bluetooth) {
       alert('Browser Anda belum mendukung Web Bluetooth API.');
@@ -390,7 +394,6 @@ export default function App() {
     }
 
     if (!char) {
-      alert('Koneksi Bluetooth Printer belum siap. Mengalihkan ke Cetak Standar...');
       window.print();
       return;
     }
@@ -450,16 +453,19 @@ export default function App() {
     }
   };
 
-  // CETAK TIKET DAPUR UNTUK KOKI
-  const printKitchenTicket = async (orderTicket) => {
+  // REVISI GAMBAR 1: CETAK TIKET DAPUR DENGAN MODAL STRUK RESMI
+  const handleOpenKitchenTicketModal = (orderTicket) => {
+    setKitchenTicketModalOrder(orderTicket);
+    setShowKitchenTicketModal(true);
+  };
+
+  const printKitchenTicketBT = async (orderTicket) => {
     let char = btPrintChar;
     if (!char || !btDevice?.gatt?.connected) {
       char = await connectBluetoothPrinter();
     }
 
     if (!char) {
-      alert(`TIKET DAPUR [${orderTicket.id}]\nPelanggan: ${orderTicket.customerName}\nMeja/Alamat: ${orderTicket.address}\n\nItem:\n` + 
-        orderTicket.items.map(i => `- ${i.qty}x ${i.name} ${i.note ? '['+i.note+']' : ''}`).join('\n'));
       window.print();
       return;
     }
@@ -506,7 +512,7 @@ export default function App() {
 
   // --- STATE MODUL KASIR ---
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('Semua');
-  const [menuSearchQuery, setMenuSearchQuery] = useState(''); // REVISI: PENCARIAN MENU INSTAN
+  const [menuSearchQuery, setMenuSearchQuery] = useState('');
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [editingMenu, setEditingMenu] = useState(null);
   const [menuForm, setMenuForm] = useState({ name: '', price: '', category: 'Makanan', image: '🍽️', isAvailable: true });
@@ -564,7 +570,7 @@ export default function App() {
   };
 
   // --- FILTER LAPORAN & DASHBOARD ---
-  const [reportFilter, setReportFilter] = useState('Harian'); // Harian, Mingguan, Bulanan
+  const [reportFilter, setReportFilter] = useState('Harian');
   
   // --- FILTER TABEL RIWAYAT TRANSAKSI (DEFAULT HARI INI) ---
   const getTodayFormattedDate = () => {
@@ -575,7 +581,8 @@ export default function App() {
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  const [historyDateFilter, setHistoryDateFilter] = useState(getTodayFormattedDate()); // DEFAULT TODAY
+  // REVISI GAMBAR 3: PRESET FILTER RIWAYAT (TODAY, WEEK, MONTH, ALL)
+  const [historyDateFilter, setHistoryDateFilter] = useState(getTodayFormattedDate());
   const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState('ALL');
 
@@ -775,7 +782,6 @@ export default function App() {
     }
   };
 
-  // REVISI: FILTER MENU SESUAI TAB KATEGORI & INPUT SEARCH BAR
   const filteredMenus = useMemo(() => {
     return menus.filter(m => {
       const matchesCategory = selectedCategoryTab === 'Semua' || m.category === selectedCategoryTab;
@@ -818,18 +824,28 @@ export default function App() {
     });
   }, [orders, reportFilter]);
 
-  // --- LOGIKA TABEL RIWAYAT TRANSAKSI (DEFAULT HARI INI) ---
+  // REVISI GAMBAR 3: LOGIKA TABEL RIWAYAT TRANSAKSI DENGAN DUKUNGAN HARI INI, MINGGU INI, BULAN INI, SEMUA, DAN DATEPICKER
   const filteredHistoryOrders = useMemo(() => {
+    const now = new Date();
+    const todayStr = getTodayFormattedDate();
+
     return orders.filter(o => {
       const d = new Date(o.date);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const orderDateStr = `${yyyy}-${mm}-${dd}`;
       
       // Filter Tanggal
       let matchDate = true;
-      if (historyDateFilter && historyDateFilter !== 'ALL') {
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const orderDateStr = `${yyyy}-${mm}-${dd}`;
+      if (historyDateFilter === 'WEEK') {
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(now.getDate() - 6);
+        sevenDaysAgo.setHours(0,0,0,0);
+        matchDate = d >= sevenDaysAgo && d <= now;
+      } else if (historyDateFilter === 'MONTH') {
+        matchDate = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      } else if (historyDateFilter !== 'ALL' && historyDateFilter) {
         matchDate = orderDateStr === historyDateFilter;
       }
 
@@ -847,7 +863,7 @@ export default function App() {
     });
   }, [orders, historyDateFilter, selectedPaymentFilter, historySearchQuery]);
 
-  // REVISI EXPORT 100% MENGIKUTI FILTER TABEL RIWAYAT / PERIODE ACTIVE
+  // REVISI EXPORT 100% MENGIKUTI FILTER TABEL RIWAYAT
   const filteredOrdersForExport = useMemo(() => {
     return filteredHistoryOrders.filter(o => {
       return exportPaymentFilter === 'ALL' || o.method === exportPaymentFilter;
@@ -907,7 +923,7 @@ export default function App() {
       <body style="font-family:sans-serif; padding:20px;">
         <h2 style="color:#1e293b; margin-bottom:5px;">${settings.storeName || 'Aplikasi POS'} - LAPORAN PENJUALAN</h2>
         <p style="margin-top:0; color:#64748b; font-size:12px;">
-          <b>Telp Admin:</b> ${settings.phone || '-'} | <b>Filter Tanggal:</b> ${historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter} | <b>Filter Metode Bayar:</b> ${exportPaymentFilter} | <b>Dicetak:</b> ${new Date().toLocaleString('id-ID')}
+          <b>Telp Admin:</b> ${settings.phone || '-'} | <b>Filter Tanggal:</b> ${historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter === 'WEEK' ? '7 Hari Terakhir' : historyDateFilter === 'MONTH' ? 'Bulan Ini' : historyDateFilter} | <b>Filter Metode Bayar:</b> ${exportPaymentFilter} | <b>Dicetak:</b> ${new Date().toLocaleString('id-ID')}
         </p>
         <hr style="border:1px solid #e2e8f0; margin:15px 0;"/>
         <div style="margin-bottom:20px; font-size:14px;">
@@ -992,17 +1008,24 @@ export default function App() {
   
   const COLORS = ['#10b981', '#0ea5e9', '#f97316'];
 
-  const topMenus = useMemo(() => {
-    const counts = {};
+  // REVISI: TOP 5 MENU FAVORIT (LENGKAP DENGAN PORSI & OMSET)
+  const top5MenuFavorit = useMemo(() => {
+    const stats = {};
     activeOrdersForReport.forEach(o => {
       o.items.forEach(item => {
-        counts[item.name] = (counts[item.name] || 0) + item.qty;
+        if (!stats[item.name]) {
+          stats[item.name] = { qty: 0, omset: 0 };
+        }
+        stats[item.name].qty += Number(item.qty) || 0;
+        stats[item.name].omset += (Number(item.price) || 0) * (Number(item.qty) || 0);
       });
     });
-    return Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 3);
+    return Object.entries(stats)
+      .map(([name, data]) => ({ name, qty: data.qty, omset: data.omset }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
   }, [activeOrdersForReport]);
 
-  // REVISI FITUR LAPORAN TAMBAHAN: ANALISIS JAM SIBUK (PEAK HOURS)
   const peakHourInsight = useMemo(() => {
     const hourCounts = {};
     activeOrdersForReport.forEach(o => {
@@ -1015,7 +1038,6 @@ export default function App() {
     return `Jam ${topHour.toString().padStart(2, '0')}:00 - ${(topHour + 1).toString().padStart(2, '0')}:00 (${sorted[0][1]} Trx)`;
   }, [activeOrdersForReport]);
 
-  // REVISI FITUR LAPORAN TAMBAHAN: BREAKDOWN OMSET PER KATEGORI (%)
   const categorySalesBreakdown = useMemo(() => {
     const catSales = {};
     let totalCatSales = 0;
@@ -1035,7 +1057,6 @@ export default function App() {
     })).sort((a,b) => b.total - a.total);
   }, [activeOrdersForReport]);
 
-  // REVISI DAPUR 2 KOLOM: AKUMULASI REKAP PORSI DAPUR HARI INI
   const kitchenPrepSummary = useMemo(() => {
     const prepMap = {};
     orders.filter(o => o.status === 'Masuk').forEach(o => {
@@ -1160,19 +1181,17 @@ export default function App() {
         </div>
       </header>
 
-      {/* MAIN CONTENT AREA (FREEZE PANES BODY DENGAN BOTTOM PADDING pb-28 md:pb-6 AGAR ANTI-DESAKAN HP) */}
+      {/* MAIN CONTENT AREA */}
       <main className="max-w-[1500px] w-full mx-auto p-4 md:p-5 flex-1 overflow-hidden animate-in fade-in duration-300" key={activeTab}>
         
         {/* TAB: POS KASIR */}
         {activeTab === 'pos' && (
-          <div className="flex flex-col md:flex-row gap-5 h-full w-full overflow-hidden items-start pb-28 md:pb-0">
+          <div className="flex flex-col md:flex-row gap-5 h-full w-full overflow-hidden items-start pb-16 md:pb-0">
             
-            {/* AREA KIRI: SEARCH BAR + KATALOG MENU + TAB KATEGORI LEBIH BESAR (14px) */}
+            {/* AREA KIRI: KATALOG MENU */}
             <div className="flex-1 w-full min-w-0 flex flex-col h-full overflow-hidden space-y-3">
               
-              {/* BARIS PENCARIAN MENU INSTAN (SEARCH BAR) & TAB KATEGORI */}
               <div className="flex flex-col sm:flex-row gap-2.5 flex-shrink-0">
-                {/* SEARCH BAR INPUT */}
                 <div className="relative flex-1">
                   <Search size={16} className="absolute left-3.5 top-3 opacity-50" />
                   <input 
@@ -1193,7 +1212,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TAB FILTER KATEGORI (REVISI FONT DIPERBESAR KE 14px / text-sm font-bold) */}
               {menus.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar w-full flex-shrink-0">
                   <button
@@ -1225,13 +1243,12 @@ export default function App() {
                 </div>
               )}
 
-              {/* AREA GRID MENU 3 KOLOM */}
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 {filteredMenus.length === 0 ? (
                   <div className={`p-12 text-center rounded-3xl border flex flex-col items-center justify-center ${t.glassCard}`}>
                     <ShoppingCart size={48} className="text-orange-500 opacity-40 mb-3" />
                     <h3 className="font-black text-lg">Menu Tidak Ditemukan</h3>
-                    <p className="text-xs opacity-70 mt-1 max-w-sm">Tidak ada menu yang sesuai dengan kata kunci pencarian atau kategori ini.</p>
+                    <p className="text-xs opacity-70 mt-1 max-w-sm">Tidak ada menu yang sesuai dengan pencarian atau kategori ini.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 pb-8">
@@ -1262,7 +1279,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* AREA KANAN: SIDEBAR KERANJANG TABLET/DESKTOP (REVISI DI-LEBARKAN KE 380px - 420px + FORM SPLIT KIRI-KANAN) */}
+            {/* AREA KANAN: SIDEBAR KERANJANG TABLET/DESKTOP */}
             <div className="hidden md:flex w-[380px] lg:w-[420px] flex-shrink-0 flex-col h-full z-20">
               <div className={`flex-1 rounded-3xl border p-4 flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
                 <h2 className="text-lg font-black border-b pb-3 mb-3 flex items-center justify-between border-zinc-500/20 flex-shrink-0">
@@ -1275,7 +1292,6 @@ export default function App() {
                   </span>
                 </h2>
 
-                {/* SCROLLABLE ITEM LIST INSIDE CART */}
                 <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
                   {cart.length === 0 ? (
                     <div className={`text-center h-full flex flex-col items-center justify-center ${t.textMuted}`}>
@@ -1320,16 +1336,13 @@ export default function App() {
                   )}
                 </div>
 
-                {/* REVISI: FORM BOTTOM KERANJANG DI-SPLIT MENJADI 2 KOLOM MENSAMPING (KIRI & KANAN) */}
                 <div className="pt-3 mt-2 border-t border-zinc-500/20 space-y-2 flex-shrink-0">
                   <div className="grid grid-cols-2 gap-2">
-                    {/* BARIS 1 KIRI: NAMA PEMESAN */}
                     <div>
                       <label className="text-[9px] font-black mb-1 block uppercase tracking-wider text-orange-500">Nama Pemesan *</label>
                       <input type="text" placeholder="Nama pelanggan" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-2 text-xs rounded-xl border outline-none transition-all ${t.input}`} />
                     </div>
 
-                    {/* BARIS 1 KANAN: ALAMAT / MEJA + TOMBOL DINE-IN/TAKEAWAY */}
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <label className="text-[9px] font-black uppercase tracking-wider opacity-70">Meja / Alamat</label>
@@ -1360,9 +1373,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* BARIS 2: SPLIT KIRI (DISKON) & KANAN (TOTAL TAGIHAN & BAYAR) */}
                   <div className="grid grid-cols-2 gap-2 pt-1">
-                    {/* KIRI: DISKON */}
                     <div className="p-2 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-1">
                       <div className="flex justify-between items-center">
                         <span className="text-[9px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-0.5">
@@ -1384,7 +1395,6 @@ export default function App() {
                       {calculatedDiscount > 0 && <p className="text-[9px] font-bold text-red-500 text-right">- {formatIDR(calculatedDiscount)}</p>}
                     </div>
 
-                    {/* KANAN: TOTAL TAGIHAN & BUTTON BAYAR */}
                     <div className="flex flex-col justify-between">
                       <div className={`p-1.5 px-2.5 rounded-xl border text-right ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'}`}>
                         <span className="text-[8px] font-bold block uppercase opacity-70">Total Net</span>
@@ -1404,7 +1414,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* FLOATING CART BUTTON (HANYA LAYAR SMARTPHONE KHUSUS < 768px) */}
+            {/* FLOATING CART BUTTON (HP) */}
             {!isMobileCartOpen && cart.length > 0 && (
               <div className="md:hidden fixed bottom-20 left-4 right-4 z-40 animate-in slide-in-from-bottom-10">
                 <button 
@@ -1428,11 +1438,11 @@ export default function App() {
               </div>
             )}
 
-            {/* MOBILE CART DRAWER (< 768px) */}
+            {/* REVISI GAMBAR 5: MOBILE CART DRAWER LENGKAP DENGAN DINE-IN/TAKEAWAY & DISKON */}
             {isMobileCartOpen && (
               <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end animate-in fade-in duration-300">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileCartOpen(false)}></div>
-                <div className={`rounded-t-[2rem] relative max-h-[90vh] flex flex-col shadow-2xl transition-transform slide-in-from-bottom-full duration-300 border-t ${t.glassPanel}`}>
+                <div className={`rounded-t-[2rem] relative max-h-[92vh] flex flex-col shadow-2xl transition-transform slide-in-from-bottom-full duration-300 border-t ${t.glassPanel}`}>
                   <div className="flex justify-between items-center p-4 border-b border-zinc-500/20">
                     <h2 className="text-base font-black flex items-center gap-2">
                       <div className="p-1.5 bg-orange-500/10 rounded-xl"><ShoppingCart className="text-orange-500" size={18}/></div>
@@ -1467,11 +1477,59 @@ export default function App() {
                     ))}
                   </div>
                   
-                  <div className={`p-4 border-t pb-24 ${isDark ? 'bg-zinc-950' : 'bg-white'}`}>
-                    <div className="space-y-2 mb-3">
-                      <input type="text" placeholder="Nama Pemesan *" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-3 text-xs font-bold rounded-xl border outline-none ${t.input}`} />
-                      <input type="text" placeholder="Dine-in / Takeaway / Meja" value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} className={`w-full p-2.5 text-xs rounded-xl border outline-none ${t.input}`} />
+                  <div className={`p-4 border-t space-y-3 pb-20 ${isDark ? 'bg-zinc-950' : 'bg-white'}`}>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-wider text-orange-500 block mb-1">Nama Pemesan *</label>
+                        <input type="text" placeholder="Nama pemesan" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full p-2.5 text-xs font-bold rounded-xl border outline-none ${t.input}`} />
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[9px] font-black uppercase tracking-wider opacity-70">Status / Meja</label>
+                          <div className="flex gap-1.5">
+                            {['Dine-in', 'Takeaway'].map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => setDeliveryNote(opt)}
+                                className={`text-[9px] font-black px-2.5 py-1 rounded-lg border transition-all active:scale-95 ${
+                                  deliveryNote === opt 
+                                    ? 'bg-orange-500 text-white border-orange-500 shadow-sm' 
+                                    : isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-slate-200 text-slate-700 border-slate-300'
+                                }`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <input type="text" placeholder="Dine-in / Takeaway / No. Meja" value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} className={`w-full p-2.5 text-xs rounded-xl border outline-none ${t.input}`} />
+                      </div>
+
+                      <div className="p-2.5 rounded-2xl border bg-orange-500/5 border-orange-500/20 space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-orange-500 flex items-center gap-1">
+                            <Tag size={12}/> Diskon Transaksi
+                          </span>
+                          <div className="flex border rounded-lg overflow-hidden text-[9px] font-bold">
+                            <button type="button" onClick={() => setDiscountType('rp')} className={`px-2 py-0.5 ${discountType === 'rp' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>Rp</button>
+                            <button type="button" onClick={() => setDiscountType('percent')} className={`px-2 py-0.5 ${discountType === 'percent' ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>%</button>
+                          </div>
+                        </div>
+
+                        <input 
+                          type="number" 
+                          min="0"
+                          placeholder={discountType === 'rp' ? 'Potongan Rp' : 'Potongan %'}
+                          value={discountValue || ''}
+                          onChange={e => setDiscountValue(Number(e.target.value))}
+                          className={`w-full p-2 text-xs font-bold rounded-xl border outline-none ${t.input}`}
+                        />
+                        {calculatedDiscount > 0 && <p className="text-[10px] font-bold text-red-500 text-right">Hemat: -{formatIDR(calculatedDiscount)}</p>}
+                      </div>
                     </div>
+
                     <button 
                       disabled={cart.length === 0 || !customerName.trim()}
                       onClick={() => { setIsMobileCartOpen(false); setShowCheckout(true); }}
@@ -1487,12 +1545,12 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: DAPUR (REVISI REDESAIN 2 KOLOM: ANTREAN AKTIF + REKAPITULASI PORSI HARIAN) */}
+        {/* TAB: DAPUR (REVISI GAMBAR 4: PADDING DITURUNKAN KE pb-16 & ANTREAN MASUK DIBERIKAN RUANG FLEX-1) */}
         {activeTab === 'dapur' && (
-          <div className="animate-in fade-in h-full flex flex-col overflow-hidden pb-28 md:pb-0">
-            <div className="flex justify-between items-center mb-4 flex-shrink-0">
-              <h2 className="text-xl md:text-2xl font-black flex items-center gap-3">
-                <div className="p-2 bg-orange-500/10 rounded-2xl"><ChefHat className="text-orange-500" size={24}/></div>
+          <div className="animate-in fade-in h-full flex flex-col overflow-hidden pb-16 md:pb-0">
+            <div className="flex justify-between items-center mb-3 flex-shrink-0">
+              <h2 className="text-lg md:text-xl font-black flex items-center gap-2">
+                <div className="p-2 bg-orange-500/10 rounded-2xl"><ChefHat className="text-orange-500" size={22}/></div>
                 Dapur & Koki Warung
               </h2>
               <span className={`text-xs font-bold px-3 py-1 rounded-full ${t.badgeOrange}`}>
@@ -1500,28 +1558,27 @@ export default function App() {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 flex-1 overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 overflow-hidden">
               
-              {/* KOLOM KIRI (60% LEBAR LAYAR): ANTREAN PESANAN MASUK ACTIVE + TOMBOL TIKET KOKI */}
               <div className={`lg:col-span-2 p-4 rounded-3xl border flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
-                <h3 className="font-black uppercase tracking-wider text-xs text-orange-500 mb-3 pb-2 border-b border-zinc-500/20 flex justify-between items-center">
+                <h3 className="font-black uppercase tracking-wider text-xs text-orange-500 mb-2 pb-2 border-b border-zinc-500/20 flex justify-between items-center">
                   <span>📋 Antrean Pesanan Perlu Dimasak</span>
                   <span className="text-[10px] font-bold opacity-70">Klik Tiket Koki untuk cetak resep</span>
                 </h3>
 
                 <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-1">
                   {orders.filter(o => o.status === 'Masuk').length === 0 ? (
-                    <div className="text-center py-16 opacity-50 flex flex-col items-center">
-                      <ChefHat size={48} className="mb-2 text-orange-500 opacity-40"/>
-                      <p className="font-bold text-sm">Tidak ada antrean pesanan dapur saat ini</p>
+                    <div className="text-center py-12 opacity-50 flex flex-col items-center">
+                      <ChefHat size={44} className="mb-2 text-orange-500 opacity-40"/>
+                      <p className="font-bold text-xs">Tidak ada antrean pesanan dapur saat ini</p>
                     </div>
                   ) : (
                     orders.filter(o => o.status === 'Masuk').map((order) => (
-                      <div key={order.id} className={`p-4 rounded-2xl border-l-4 border-l-orange-500 border transition-all ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                        <div className="flex justify-between items-start mb-3 pb-2 border-b border-zinc-500/10">
+                      <div key={order.id} className={`p-3.5 rounded-2xl border-l-4 border-l-orange-500 border transition-all ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex justify-between items-start mb-2 pb-2 border-b border-zinc-500/10">
                           <div>
                             <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">{order.id}</span>
-                            <p className="text-base font-black mt-0.5">{order.customerName}</p>
+                            <p className="text-sm font-black mt-0.5">{order.customerName}</p>
                             <p className="text-[10px] font-bold opacity-70 flex items-center gap-1"><MapPin size={10}/> {order.address}</p>
                           </div>
                           
@@ -1532,20 +1589,20 @@ export default function App() {
                           </div>
                         </div>
 
-                        <ul className="space-y-2 mb-4">
+                        <ul className="space-y-1.5 mb-3">
                           {order.items.map((item, idx) => (
                             <li key={idx} className={`p-2 rounded-xl border text-xs font-bold ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200'}`}>
                               <div className="flex justify-between items-center">
                                 <span><span className="text-orange-500 font-black bg-orange-500/10 px-2 py-0.5 rounded-md mr-1.5">{item.qty}x</span> {item.name}</span>
                               </div>
-                              {item.note && <div className={`text-[10px] font-bold italic mt-1.5 px-2 py-1 rounded-md ${t.badgeRed}`}>Catatan: {item.note}</div>}
+                              {item.note && <div className={`text-[10px] font-bold italic mt-1 px-2 py-0.5 rounded-md ${t.badgeRed}`}>Catatan: {item.note}</div>}
                             </li>
                           ))}
                         </ul>
 
-                        <div className="flex gap-2.5">
+                        <div className="flex gap-2">
                           <button 
-                            onClick={() => printKitchenTicket(order)} 
+                            onClick={() => handleOpenKitchenTicketModal(order)} 
                             className="flex-1 py-2 rounded-xl font-bold text-xs uppercase tracking-wider bg-blue-500 hover:bg-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
                           >
                             <Printer size={14}/> Cetak Tiket Koki
@@ -1564,24 +1621,23 @@ export default function App() {
                 </div>
               </div>
 
-              {/* KOLOM KANAN (40% LEBAR LAYAR): REKAPITULASI TOTAL PORSI DAPUR HARI INI */}
               <div className={`p-4 rounded-3xl border flex flex-col h-full overflow-hidden transition-colors duration-300 ${t.glassCard}`}>
-                <h3 className="font-black uppercase tracking-wider text-xs text-emerald-500 mb-3 pb-2 border-b border-zinc-500/20 flex items-center justify-between">
+                <h3 className="font-black uppercase tracking-wider text-xs text-emerald-500 mb-2 pb-2 border-b border-zinc-500/20 flex items-center justify-between">
                   <span>🍳 Rekapitulasi Porsi Dapur</span>
                   <span className="text-[10px] font-bold opacity-70">Antrean Aktif</span>
                 </h3>
 
-                <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
+                <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-1">
                   {kitchenPrepSummary.length === 0 ? (
-                    <p className="text-xs opacity-50 text-center py-10">Belum ada porsi pesanan aktif</p>
+                    <p className="text-xs opacity-50 text-center py-8">Belum ada porsi pesanan aktif</p>
                   ) : (
                     kitchenPrepSummary.map(([itemName, totalQty], idx) => (
-                      <div key={idx} className={`p-3 rounded-2xl border flex justify-between items-center ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                      <div key={idx} className={`p-2.5 rounded-2xl border flex justify-between items-center ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
                         <span className="font-bold text-xs flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-orange-500"/>
                           {itemName}
                         </span>
-                        <span className="font-black text-xs text-orange-500 bg-orange-500/10 px-3 py-1 rounded-xl">
+                        <span className="font-black text-xs text-orange-500 bg-orange-500/10 px-2.5 py-0.5 rounded-xl">
                           {totalQty} Porsi
                         </span>
                       </div>
@@ -1596,7 +1652,7 @@ export default function App() {
 
         {/* TAB: LAPORAN */}
         {activeTab === 'laporan' && (
-          <div className="space-y-5 animate-in fade-in h-full overflow-y-auto pr-2 custom-scrollbar pb-28 md:pb-6">
+          <div className="space-y-5 animate-in fade-in h-full overflow-y-auto pr-2 custom-scrollbar pb-16 md:pb-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-500/20 pb-4">
               <div>
                 <h2 className="text-xl md:text-2xl font-black flex items-center gap-3">
@@ -1612,7 +1668,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* RINGKASAN CARD OMSET (SINKRON DENGAN PERIODE DROPDOWN) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className={`p-4 rounded-3xl border flex flex-col justify-center transition-colors duration-300 ${t.glassCard}`}>
                 <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${t.textMuted}`}>Total Omset ({reportFilter})</p>
@@ -1650,7 +1705,6 @@ export default function App() {
               </div>
 
               <div className="space-y-5">
-                {/* REVISI FITUR LAPORAN TAMBAHAN: WIDGET JAM SIBUK & BREAKDOWN KATEGORI */}
                 <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
                   <h3 className="font-black mb-3 text-xs uppercase tracking-wider opacity-80 flex items-center gap-2">
                     <Zap size={14} className="text-yellow-500"/> Analisis Jam Sibuk Warung
@@ -1674,7 +1728,40 @@ export default function App() {
               </div>
             </div>
 
-            {/* REVISI BREAKDOWN KATEGORI OMSET */}
+            {/* REVISI: TOP 5 MENU FAVORIT / TERLARIS HASIL DISKUSI */}
+            <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
+              <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80 flex items-center gap-2">
+                <Award className="text-orange-500" size={16}/> Top 5 Menu Favorit / Terlaris ({reportFilter})
+              </h3>
+              
+              <div className="space-y-3">
+                {top5MenuFavorit.length === 0 ? (
+                  <p className="text-xs opacity-50 text-center py-4">Belum ada transaksi menu pada periode ini</p>
+                ) : (
+                  top5MenuFavorit.map((item, idx) => (
+                    <div key={idx} className={`flex justify-between items-center p-3.5 rounded-2xl border ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex items-center gap-3">
+                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black text-white shadow-sm ${
+                          idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' : 
+                          idx === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-500' : 
+                          idx === 2 ? 'bg-gradient-to-br from-amber-600 to-amber-800' : 'bg-zinc-700'
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <p className="font-black text-xs">{item.name}</p>
+                          <p className="text-[10px] text-orange-500 font-bold">Total Omset Menu: {formatIDR(item.omset)}</p>
+                        </div>
+                      </div>
+                      <span className={`font-black text-xs px-3 py-1 rounded-xl ${t.badgeOrange}`}>
+                        {item.qty} Porsi Terjual
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             {categorySalesBreakdown.length > 0 && (
               <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
                 <h3 className="font-black mb-4 text-xs uppercase tracking-wider opacity-80">📊 Breakdown Omset Berdasarkan Kategori</h3>
@@ -1695,7 +1782,7 @@ export default function App() {
               </div>
             )}
 
-            {/* TABEL RINCIAN TRANSAKSI (DEFAULT HARI INI + FILTER PRESET KANBAN) */}
+            {/* TABEL RINCIAN TRANSAKSI (REVISI GAMBAR 3: PRESET BUTTON HARI INI, MINGGU INI, BULAN INI, SEMUA & DATEPICKER) */}
             <div className={`p-5 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4 pb-3 border-b border-zinc-500/20">
                 <div>
@@ -1705,8 +1792,7 @@ export default function App() {
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                  {/* SEARCH BAR */}
-                  <div className="relative flex-1 sm:flex-initial min-w-[160px]">
+                  <div className="relative flex-1 sm:flex-initial min-w-[150px]">
                     <Search size={14} className="absolute left-3 top-2.5 opacity-50" />
                     <input 
                       type="text" 
@@ -1717,31 +1803,44 @@ export default function App() {
                     />
                   </div>
 
-                  {/* DATE PICKER (FILTER TANGGAL SPESIFIK) */}
-                  <div className="flex items-center gap-1.5">
-                    <input 
-                      type="date"
-                      value={historyDateFilter === 'ALL' ? '' : historyDateFilter}
-                      onChange={e => setHistoryDateFilter(e.target.value || 'ALL')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border outline-none cursor-pointer ${isDark ? 'bg-zinc-900 border-zinc-700 text-orange-400' : 'bg-white border-slate-300 text-orange-600'}`}
-                    />
-                    
+                  {/* PRESET FILTER TOMBOL HARI INI, MINGGU INI, BULAN INI, SEMUA */}
+                  <div className="flex items-center gap-1 overflow-x-auto">
                     <button 
                       onClick={() => setHistoryDateFilter(getTodayFormattedDate())}
-                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 ${historyDateFilter === getTodayFormattedDate() ? 'bg-orange-500 text-white border-orange-500' : t.glassCard}`}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 whitespace-nowrap ${historyDateFilter === getTodayFormattedDate() ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : t.glassCard}`}
                     >
                       Hari Ini
                     </button>
 
                     <button 
+                      onClick={() => setHistoryDateFilter('WEEK')}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 whitespace-nowrap ${historyDateFilter === 'WEEK' ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : t.glassCard}`}
+                    >
+                      Minggu Ini
+                    </button>
+
+                    <button 
+                      onClick={() => setHistoryDateFilter('MONTH')}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 whitespace-nowrap ${historyDateFilter === 'MONTH' ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : t.glassCard}`}
+                    >
+                      Bulan Ini
+                    </button>
+
+                    <button 
                       onClick={() => setHistoryDateFilter('ALL')}
-                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 ${historyDateFilter === 'ALL' ? 'bg-orange-500 text-white border-orange-500' : t.glassCard}`}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all active:scale-95 whitespace-nowrap ${historyDateFilter === 'ALL' ? 'bg-orange-500 text-white border-orange-500 shadow-sm' : t.glassCard}`}
                     >
                       Semua
                     </button>
+
+                    <input 
+                      type="date"
+                      value={['ALL','WEEK','MONTH'].includes(historyDateFilter) ? '' : historyDateFilter}
+                      onChange={e => setHistoryDateFilter(e.target.value || 'ALL')}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border outline-none cursor-pointer ${isDark ? 'bg-zinc-900 border-zinc-700 text-orange-400' : 'bg-white border-slate-300 text-orange-600'}`}
+                    />
                   </div>
 
-                  {/* FILTER METHOD */}
                   <select 
                     value={selectedPaymentFilter} 
                     onChange={e => setSelectedPaymentFilter(e.target.value)}
@@ -1834,9 +1933,9 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: PENGATURAN (REVISI: ANTI DESAK-DESAKAN LAYAR HP 2 BARIS BERTINGKAT) */}
+        {/* TAB: PENGATURAN */}
         {activeTab === 'pengaturan' && (
-          <div className="animate-in fade-in max-w-5xl mx-auto space-y-6 h-full overflow-y-auto pr-2 custom-scrollbar pb-28 md:pb-6">
+          <div className="animate-in fade-in max-w-5xl mx-auto space-y-6 h-full overflow-y-auto pr-2 custom-scrollbar pb-16 md:pb-6">
             <h2 className="text-xl md:text-2xl font-black flex items-center gap-3">
               <div className="p-2.5 bg-orange-500/10 rounded-2xl"><Settings className="text-orange-500" size={24}/></div>
               Pengaturan Sistem Warung
@@ -1891,7 +1990,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* REVISI DESAIN DAFTAR MENU DI HP: LAYOUT 2 BARIS AGAR TIDAK DESAK-DESAKAN */}
             <div className={`p-5 md:p-6 rounded-3xl border transition-colors duration-300 ${t.glassCard}`}>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4 border-b border-zinc-500/20 pb-4">
                 <h3 className="font-black text-xs uppercase tracking-wider opacity-80">Manajemen Daftar Menu</h3>
@@ -1906,7 +2004,6 @@ export default function App() {
               <div className="space-y-3">
                 {menus.map(menu => (
                   <div key={menu.id} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-2xl border gap-3 transition-colors ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                    {/* BARIS ATAS / KIRI: FOTO & NAMA MENU */}
                     <div className="flex items-center gap-3.5 w-full sm:w-auto">
                       <div className="w-12 h-12 flex justify-center items-center bg-zinc-500/10 rounded-2xl text-2xl shadow-sm border border-zinc-500/20 overflow-hidden flex-shrink-0">
                         {typeof menu.image === 'string' && (menu.image.startsWith('http') || menu.image.startsWith('blob:') || menu.image.startsWith('data:')) 
@@ -1922,7 +2019,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* BARIS BAWAH / KANAN: SAKLAR STOK & TOMBOL ACTION (LEGA DI HP) */}
                     <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-500/10">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold opacity-70">{menu.isAvailable ? 'Tersedia' : 'Habis'}</span>
@@ -1977,7 +2073,7 @@ export default function App() {
 
       </main>
 
-      {/* MOBILE BOTTOM NAV (KHUSUS LAYAR HP KHUSUS < 768px) */}
+      {/* MOBILE BOTTOM NAV */}
       <nav className={`md:hidden fixed bottom-3 left-4 right-4 rounded-3xl border flex justify-around p-1.5 z-30 backdrop-blur-2xl transition-all duration-300 shadow-2xl ${
         isDark 
           ? 'bg-zinc-900/80 border-zinc-800/80 shadow-black/60' 
@@ -2003,6 +2099,63 @@ export default function App() {
           </button>
         ))}
       </nav>
+
+      {/* REVISI GAMBAR 1: MODAL STRUK TIKET KOKI DAPUR KHUSUS */}
+      {showKitchenTicketModal && kitchenTicketModalOrder && (
+        <div className="fixed inset-0 bg-black/90 z-[75] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print:bg-white print:p-0 print:block">
+          <div className="w-full max-w-sm bg-white text-black p-6 relative font-mono text-xs shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-none md:rounded-lg">
+            
+            <div className="absolute top-4 right-4 print:hidden flex gap-2">
+              <button onClick={() => printKitchenTicketBT(kitchenTicketModalOrder)} className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 active:scale-90 rounded-full transition-all" title="Cetak Bluetooth Thermal Printer"><Bluetooth size={16}/></button>
+              <button onClick={() => window.print()} className="p-2 bg-gray-200 hover:bg-gray-300 active:scale-90 rounded-full transition-all" title="Cetak Driver / PDF"><Printer size={16}/></button>
+              <button onClick={() => setShowKitchenTicketModal(false)} className="p-2 bg-red-100 hover:bg-red-200 active:scale-90 rounded-full text-red-600 transition-all"><X size={16}/></button>
+            </div>
+
+            <div className="text-center border-b-2 border-dashed border-gray-400 pb-4 mb-4 mt-6 print:mt-0">
+              <h2 className="text-lg font-black uppercase tracking-widest">*** TIKET DAPUR / KOKI ***</h2>
+              <p className="text-xs font-bold mt-1">ID: {kitchenTicketModalOrder.id}</p>
+              <p className="text-[10px] opacity-80">{new Date(kitchenTicketModalOrder.date).toLocaleString('id-ID')}</p>
+            </div>
+            
+            <div className="mb-4 text-xs leading-relaxed bg-slate-100 p-3 rounded-lg">
+              <p><b>PEMESAN:</b> <span className="text-orange-600 uppercase font-black">{kitchenTicketModalOrder.customerName}</span></p>
+              <p><b>MEJA / ALAMAT:</b> {kitchenTicketModalOrder.address}</p>
+            </div>
+
+            <div className="space-y-3 mb-6 border-b-2 border-dashed border-gray-400 pb-4">
+              <div className="font-bold flex justify-between border-b border-gray-200 pb-2 mb-2 uppercase text-[10px]">
+                <span>QTY</span><span>NAMA MENU & CATATAN</span>
+              </div>
+              {kitchenTicketModalOrder.items.map((item, idx) => (
+                <div key={idx} className="mb-2">
+                  <div className="font-black text-sm flex gap-2">
+                    <span className="bg-black text-white px-1.5 py-0.5 rounded">{item.qty}x</span>
+                    <span>{item.name}</span>
+                  </div>
+                  {item.note && <div className="text-xs italic pl-7 mt-1 text-red-600 font-bold">{'>>>'} Catatan: {item.note}</div>}
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center font-bold">
+              <p className="text-xs uppercase">HARAP SEGERA DISIAPKAN!</p>
+            </div>
+
+            <div className="mt-6 space-y-2 print:hidden">
+              <button 
+                onClick={() => printKitchenTicketBT(kitchenTicketModalOrder)} 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl uppercase tracking-widest text-xs active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30"
+              >
+                <Bluetooth size={16} /> Cetak Struk Dapur BT
+              </button>
+
+              <button onClick={() => setShowKitchenTicketModal(false)} className="w-full bg-black text-white font-bold py-3 rounded-xl uppercase tracking-widest text-xs active:scale-95 transition-transform">
+                Tutup Struk Dapur
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL RESET KONFIRMASI */}
       {resetModalConfig.isOpen && (
@@ -2249,7 +2402,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL STRUK */}
+      {/* MODAL STRUK PELANGGAN */}
       {showReceipt && currentOrderReceipt && (
         <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 backdrop-blur-xl overflow-y-auto animate-in fade-in print:bg-white print:p-0 print:block">
           <div className="w-full max-w-sm bg-white text-black p-8 relative font-mono text-xs shadow-2xl print:shadow-none mx-auto my-8 print:my-0 rounded-none md:rounded-lg">
@@ -2375,7 +2528,12 @@ export default function App() {
               </div>
 
               <div className={`p-4 rounded-2xl border text-xs space-y-1.5 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
-                <div className="flex justify-between"><span className={t.textMuted}>Filter Tanggal Active:</span><span className="font-bold">{historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter}</span></div>
+                <div className="flex justify-between">
+                  <span className={t.textMuted}>Filter Tanggal Active:</span>
+                  <span className="font-bold">
+                    {historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter === 'WEEK' ? '7 Hari Terakhir' : historyDateFilter === 'MONTH' ? 'Bulan Ini' : historyDateFilter}
+                  </span>
+                </div>
                 <div className="flex justify-between"><span className={t.textMuted}>Total Omset Diproses:</span><span className="font-black text-emerald-500">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</span></div>
                 <div className="flex justify-between"><span className={t.textMuted}>Jumlah Transaksi:</span><span className="font-bold">{filteredOrdersForExport.length} Nota</span></div>
               </div>
@@ -2400,11 +2558,10 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL PRINT / PDF REPORT PREVIEW (FIXED STICKY TOP CONTROL BAR + MULTI PAGE A4 SINKRON FILTER) */}
+      {/* REVISI GAMBAR 2: MODAL PRINT / PDF REPORT PREVIEW DENGAN FORMAT DOKUMEN CETAK A4 CONTINUOUS MULTI-PAGE RAPI */}
       {showPdfReportModal && (
         <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col backdrop-blur-xl overflow-hidden animate-in fade-in print:bg-white print:p-0 print:block">
           
-          {/* HEADER KONTROL TOMBOL CETAK & TUTUP (TERKUNCI KOKOH DI ATAS / STICKY TOP) */}
           <div className="sticky top-0 z-50 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 p-4 flex justify-between items-center text-white print:hidden flex-shrink-0">
             <div className="flex items-center gap-2">
               <Printer className="text-orange-500" size={20} />
@@ -2426,11 +2583,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* AREA DOKUMEN KERTAS BER-SCROLL MANDIRI */}
           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar print:p-0 print:overflow-visible">
             <div className="w-full max-w-4xl bg-white text-slate-800 p-6 md:p-10 relative font-sans shadow-2xl print:shadow-none mx-auto rounded-2xl print:rounded-none print:w-full">
               
-              {/* HEADER LAPORAN */}
               <div className="flex justify-between items-center border-b-2 border-slate-800 pb-6 mb-6">
                 <div className="flex items-center gap-4">
                   <img src={settings.profilePic} className="w-12 h-12 aspect-square max-w-[48px] max-h-[48px] rounded-2xl object-cover border-2 border-orange-500 flex-shrink-0" alt="Logo" />
@@ -2440,14 +2595,13 @@ export default function App() {
                   </div>
                 </div>
                 <div className="text-right text-xs">
-                  <p className="font-bold text-slate-700">Tanggal: {historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter}</p>
+                  <p className="font-bold text-slate-700">Tanggal: {historyDateFilter === 'ALL' ? 'Semua Tanggal' : historyDateFilter === 'WEEK' ? '7 Hari Terakhir' : historyDateFilter === 'MONTH' ? 'Bulan Ini' : historyDateFilter}</p>
                   <p className="text-slate-500 text-[10px] mt-0.5">Filter Bayar: {exportPaymentFilter}</p>
                   <p className="text-slate-400 text-[10px]">Dicetak: {new Date().toLocaleString('id-ID')}</p>
                 </div>
               </div>
 
-              {/* CARDS SUMMARY LAPORAN */}
-              <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
                   <p className="text-[10px] font-bold text-emerald-700 uppercase">Total Omset Net</p>
                   <p className="text-xl font-black text-emerald-600">{formatIDR(filteredOrdersForExport.reduce((s,o)=>s+o.total,0))}</p>
@@ -2462,38 +2616,51 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TABLE LIST MULTI-PAGE PRINT */}
+              {top5MenuFavorit.length > 0 && (
+                <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                  <h3 className="font-bold text-xs uppercase text-slate-700 mb-2">🏆 Top Menu Favorit (Terlaris)</h3>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {top5MenuFavorit.slice(0, 4).map((item, i) => (
+                      <div key={i} className="flex justify-between border-b border-slate-200 pb-1">
+                        <span>{i+1}. {item.name}</span>
+                        <span className="font-bold text-orange-600">{item.qty} porsi ({formatIDR(item.omset)})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {(exportPaymentFilter === 'ALL' ? ['Tunai', 'QRIS', 'Transfer'] : [exportPaymentFilter]).map(method => {
                 const mOrders = filteredOrdersForExport.filter(o => o.method === method);
                 if (mOrders.length === 0) return null;
                 const mTotal = mOrders.reduce((sum, o) => sum + o.total, 0);
 
                 return (
-                  <div key={method} className="mb-8 print-page-break">
-                    <div className="flex justify-between items-center bg-slate-800 text-white px-4 py-2.5 rounded-t-xl text-xs font-bold uppercase tracking-wider">
+                  <div key={method} className="mb-6">
+                    <div className="flex justify-between items-center bg-slate-800 text-white px-4 py-2 rounded-t-xl text-xs font-bold uppercase tracking-wider">
                       <span>Metode Pembayaran: {method} ({mOrders.length} Transaksi)</span>
                       <span className="text-emerald-400">Total: {formatIDR(mTotal)}</span>
                     </div>
                     <table className="w-full text-left text-xs border-collapse border border-slate-200">
                       <thead>
                         <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[9px] border-b border-slate-200">
-                          <th className="p-2.5">ID Order</th>
-                          <th className="p-2.5">Tanggal & Waktu</th>
-                          <th className="p-2.5">Pelanggan</th>
-                          <th className="p-2.5">Rincian Item</th>
-                          <th className="p-2.5 text-right">Diskon</th>
-                          <th className="p-2.5 text-right">Total Net</th>
+                          <th className="p-2">ID Order</th>
+                          <th className="p-2">Waktu</th>
+                          <th className="p-2">Pelanggan</th>
+                          <th className="p-2">Item Pesanan</th>
+                          <th className="p-2 text-right">Diskon</th>
+                          <th className="p-2 text-right">Total Net</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
                         {mOrders.map(o => (
                           <tr key={o.id} className="print-page-break">
-                            <td className="p-2.5 font-bold text-orange-600">{o.id}</td>
-                            <td className="p-2.5 text-[10px] text-slate-500">{new Date(o.date).toLocaleDateString('id-ID')} {new Date(o.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
-                            <td className="p-2.5 font-bold">{o.customerName} <span className="font-normal text-slate-500">({o.address})</span></td>
-                            <td className="p-2.5 text-[11px]">{o.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</td>
-                            <td className="p-2.5 text-right text-red-600">{o.discountAmount ? `- ${formatIDR(o.discountAmount)}` : '-'}</td>
-                            <td className="p-2.5 text-right font-bold text-emerald-600">{formatIDR(o.total)}</td>
+                            <td className="p-2 font-bold text-orange-600">{o.id}</td>
+                            <td className="p-2 text-[10px] text-slate-500">{new Date(o.date).toLocaleDateString('id-ID')} {new Date(o.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}</td>
+                            <td className="p-2 font-bold">{o.customerName} <span className="font-normal text-slate-500">({o.address})</span></td>
+                            <td className="p-2 text-[10px]">{o.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</td>
+                            <td className="p-2 text-right text-red-600">{o.discountAmount ? `- ${formatIDR(o.discountAmount)}` : '-'}</td>
+                            <td className="p-2 text-right font-bold text-emerald-600">{formatIDR(o.total)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2502,13 +2669,12 @@ export default function App() {
                 );
               })}
 
-              {/* FOOTER PENANGGUNG JAWAB */}
-              <div className="mt-12 pt-6 border-t border-slate-200 flex justify-between items-end text-xs print-page-break">
+              <div className="mt-10 pt-6 border-t border-slate-200 flex justify-between items-end text-xs print-page-break">
                 <div className="text-slate-400 text-[10px]">
                   Dokumen ini dihasilkan secara otomatis oleh Sistem POS Warung.
                 </div>
                 <div className="text-center w-48">
-                  <p className="text-slate-500 mb-12">Penanggung Jawab,</p>
+                  <p className="text-slate-500 mb-10">Penanggung Jawab,</p>
                   <p className="font-bold text-slate-800 underline uppercase">{settings.storeName}</p>
                 </div>
               </div>
@@ -2518,7 +2684,7 @@ export default function App() {
         </div>
       )}
 
-      {/* OVERRIDE SCROLLBAR & FORMAT CETAK PRINTER A4 MULTI-PAGE SINKRON */}
+      {/* OVERRIDE PRINT FORMAT A4 CONTINUOUS */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -2526,18 +2692,15 @@ export default function App() {
         .custom-scrollbar:hover::-webkit-scrollbar-thumb { opacity: 0.8; }
         
         @media print {
-          html, body, #root, div {
+          html, body, #root {
             overflow: visible !important;
             height: auto !important;
-            max-height: none !important;
+            background: white !important;
+            color: black !important;
           }
           @page {
             size: A4 portrait;
             margin: 10mm;
-          }
-          body {
-            background: white !important;
-            color: black !important;
           }
           .print-page-break {
             page-break-inside: avoid;
