@@ -469,9 +469,22 @@ export default function App() {
 
   // --- CHECKOUT HANDLER ---
   const handleOpenCheckout = () => {
-    if (orderType === 'Delivery' && !deliveryAddress.trim()) {
-      showToast('Mohon isi alamat tujuan untuk pesanan Delivery.', 'error');
-      return;
+    if (orderType === 'Delivery') {
+      if (!customerName.trim() && !deliveryAddress.trim()) {
+        showToast(
+          'Mohon isi nama pemesan dan alamat tujuan untuk pesanan Delivery.',
+          'error'
+        );
+        return;
+      }
+      if (!customerName.trim()) {
+        showToast('Mohon isi nama pemesan untuk pesanan Delivery.', 'error');
+        return;
+      }
+      if (!deliveryAddress.trim()) {
+        showToast('Mohon isi alamat tujuan untuk pesanan Delivery.', 'error');
+        return;
+      }
     }
     setPaymentMethod('Tunai');
     setCashGiven(totalTagihan);
@@ -480,8 +493,14 @@ export default function App() {
 
   const handleConfirmPay = async () => {
     if (!isCashSufficient || cart.length === 0 || submittingOrder) return;
-    if (orderType === 'Delivery' && !deliveryAddress.trim()) {
-      showToast('Alamat tujuan wajib diisi untuk pesanan Delivery.', 'error');
+    if (
+      orderType === 'Delivery' &&
+      (!customerName.trim() || !deliveryAddress.trim())
+    ) {
+      showToast(
+        'Nama pemesan dan alamat tujuan wajib diisi untuk pesanan Delivery.',
+        'error'
+      );
       return;
     }
     setSubmittingOrder(true);

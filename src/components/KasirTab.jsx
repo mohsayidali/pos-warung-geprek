@@ -240,8 +240,11 @@ export default function KasirTab({
     0
   );
 
+  const isDeliveryMissingName =
+    orderType === 'Delivery' && !customerName.trim();
   const isDeliveryMissingAddress =
     orderType === 'Delivery' && !deliveryAddress.trim();
+  const isDeliveryIncomplete = isDeliveryMissingName || isDeliveryMissingAddress;
 
   const showMenuImages = theme?.showMenuImages !== false;
   const density = theme?.density || 'normal';
@@ -294,15 +297,27 @@ export default function KasirTab({
       {/* Nama Pemesan & Diskon */}
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 block mb-0.5">
-            Nama Pemesan
+          <label
+            className={`text-[11px] block mb-0.5 ${
+              orderType === 'Delivery'
+                ? 'font-bold text-[var(--accent-text)]'
+                : 'font-semibold text-slate-600 dark:text-zinc-400'
+            }`}
+          >
+            {orderType === 'Delivery' ? 'Nama Pemesan *' : 'Nama Pemesan'}
           </label>
           <input
             type="text"
-            placeholder="Pelanggan"
+            placeholder={
+              orderType === 'Delivery' ? 'Wajib diisi (Delivery)' : 'Pelanggan'
+            }
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
-            className="w-full px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-900 focus:border-[var(--accent)] outline-none"
+            className={`w-full px-2.5 py-1.5 text-xs font-medium rounded-lg border outline-none ${
+              isDeliveryMissingName
+                ? 'border-[var(--accent-soft-border)] bg-[var(--accent-soft)] text-slate-900 dark:text-zinc-100 focus:border-[var(--accent)]'
+                : 'border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-900 focus:border-[var(--accent)]'
+            }`}
           />
         </div>
 
@@ -412,14 +427,18 @@ export default function KasirTab({
 
       <button
         type="button"
-        disabled={cart.length === 0 || isDeliveryMissingAddress}
+        disabled={cart.length === 0 || isDeliveryIncomplete}
         onClick={() => {
           setIsMobileCartOpen(false);
           onOpenCheckout();
         }}
         className="w-full py-2.5 px-4 theme-ctrl bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-slate-200 dark:disabled:bg-zinc-800 disabled:text-slate-400 dark:disabled:text-zinc-600 text-white text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed min-h-[44px]"
       >
-        {isDeliveryMissingAddress && cart.length > 0
+        {cart.length > 0 && isDeliveryMissingName && isDeliveryMissingAddress
+          ? 'Isi Nama & Alamat Delivery'
+          : cart.length > 0 && isDeliveryMissingName
+          ? 'Isi Nama Pemesan Dahulu'
+          : cart.length > 0 && isDeliveryMissingAddress
           ? 'Isi Alamat Delivery Dahulu'
           : 'Bayar Sekarang'}
       </button>
