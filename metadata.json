@@ -1,0 +1,7 @@
+{
+  "name": "Warung Geprek POS",
+  "description": "Aplikasi Kasir & Dapur Warung Cobek Geprek Realtime dengan Supabase",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
