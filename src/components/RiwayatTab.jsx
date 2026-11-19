@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Search,
   Printer,
@@ -22,7 +22,15 @@ export default function RiwayatTab({
   onOpenReceiptModal,
   onDeleteOrder,
 }) {
-  const [todayAnchor] = useState(() => formatDateInput(new Date()));
+  const [todayAnchor, setTodayAnchor] = useState(() => formatDateInput(new Date()));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = formatDateInput(new Date());
+      setTodayAnchor((prev) => (prev === next ? prev : next));
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const activePreset = useMemo(() => {
     if (!historyStartDate && !historyEndDate) return 'all';

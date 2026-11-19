@@ -14,8 +14,8 @@ export default defineConfig({
         name: 'Warung Cobek Geprek POS',
         short_name: 'CobekGeprek',
         description: 'Sistem Kasir & Dapur Warung Cobek Geprek',
-        theme_color: '#f97316',
-        background_color: '#09090b',
+        theme_color: '#09090b',
+        background_color: '#f8fafc',
         display: 'standalone',
         start_url: '/',
         icons: [

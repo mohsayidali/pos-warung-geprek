@@ -958,7 +958,7 @@ function SettingsModalBody({
                     Berlaku untuk tombol aksi, menu aktif, grafik, dan sorotan harga
                   </p>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {Object.values(THEME_PRESETS).map((preset) => {
                     const active = theme.accent === preset.id;
                     return (
@@ -988,6 +988,44 @@ function SettingsModalBody({
                       </button>
                     );
                   })}
+
+                  {/* Kartu Pilihan Warna Custom Bebas */}
+                  <label
+                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border-2 text-xs font-bold transition-colors cursor-pointer ${
+                      theme.accent === 'custom'
+                        ? 'border-[var(--accent)] bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
+                        : 'border-dashed border-slate-300 dark:border-zinc-700 bg-white/70 dark:bg-zinc-900/60 text-slate-700 dark:text-zinc-300 hover:border-slate-400 dark:hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="color"
+                        value={theme.customColor || '#db2777'}
+                        onChange={(e) =>
+                          onUpdateTheme({
+                            accent: 'custom',
+                            customColor: e.target.value,
+                          })
+                        }
+                        aria-label="Pilih warna tema custom"
+                        className="w-5 h-5 rounded-full border-0 p-0 bg-transparent cursor-pointer flex-shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="block truncate leading-tight">
+                          Custom
+                        </span>
+                        <span className="block text-[10px] font-mono text-slate-400 dark:text-zinc-500 uppercase leading-tight">
+                          {theme.customColor || '#db2777'}
+                        </span>
+                      </div>
+                    </div>
+                    {theme.accent === 'custom' && (
+                      <Check
+                        size={14}
+                        className="text-[var(--accent-text)] flex-shrink-0"
+                      />
+                    )}
+                  </label>
                 </div>
               </div>
 
@@ -1225,7 +1263,7 @@ function SettingsModalBody({
         </div>
 
         {/* Footer Sticky Modal */}
-        <div className="px-4 sm:px-5 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/60 flex items-center justify-between gap-2.5 flex-shrink-0">
+        <div className="px-4 sm:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/60 flex items-center justify-between gap-2.5 flex-shrink-0">
           {activeSection === 'profil' ? (
             <>
               <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">

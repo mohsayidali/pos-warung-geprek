@@ -51,7 +51,7 @@ function StoreLogo({ profilePic, storeName }) {
   }
 
   return (
-    <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center text-orange-400">
+    <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center text-[var(--accent-text)]">
       <Flame size={16} />
     </div>
   );
@@ -249,9 +249,9 @@ export default function Header({
         </div>
       </header>
 
-      {/* Mobile Bottom Nav (< md) - Docked rapi dengan target sentuh 44px+ */}
+      {/* Mobile Bottom Nav (< md) - Docked rapi dengan safe-area bottom & target sentuh 44px+ */}
       <nav
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-30 border-t backdrop-blur-md px-2 py-1.5 grid grid-cols-4 gap-1 shadow-lg ${mobileNavShellClass}`}
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-30 border-t backdrop-blur-md px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] grid grid-cols-4 gap-1 shadow-lg ${mobileNavShellClass}`}
       >
         {NAV_TABS.map((tab) => {
           const Icon = tab.icon;

@@ -24,16 +24,19 @@
   color-scheme: dark;
 }
 
+html,
 body {
   margin: 0;
   padding: 0;
   background-color: #f8fafc;
   color: #0f172a;
   min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
+.dark,
 .dark body {
   background-color: #09090b;
   color: #f4f4f5;
@@ -42,6 +45,7 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
 }

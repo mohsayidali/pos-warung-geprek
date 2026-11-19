@@ -616,7 +616,12 @@ export default function App() {
   };
 
   const handleSaveMenu = async () => {
-    if (!menuForm.name || !menuForm.price) return;
+    const trimmedName = (menuForm.name || '').trim();
+    const numericPrice = Number(menuForm.price);
+    if (!trimmedName || Number.isNaN(numericPrice) || numericPrice <= 0) {
+      showToast('Nama menu dan harga (> 0) wajib diisi.', 'error');
+      return;
+    }
 
     let finalCategory = menuForm.category;
     if (isCustomCategoryMode && customCategoryInput.trim()) {
@@ -631,8 +636,8 @@ export default function App() {
       const { error } = await supabase
         .from('menus')
         .update({
-          name: menuForm.name,
-          price: Number(menuForm.price),
+          name: trimmedName,
+          price: numericPrice,
           category: finalCategory,
           image: menuForm.image,
           is_available: menuForm.isAvailable,
@@ -647,8 +652,8 @@ export default function App() {
     } else {
       const { error } = await supabase.from('menus').insert([
         {
-          name: menuForm.name,
-          price: Number(menuForm.price),
+          name: trimmedName,
+          price: numericPrice,
           category: finalCategory,
           image: menuForm.image,
           is_available: menuForm.isAvailable,
@@ -767,7 +772,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-full bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex flex-col overflow-hidden transition-colors">
+    <div className="h-[100dvh] w-full bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 flex flex-col overflow-hidden transition-colors">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}

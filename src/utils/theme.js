@@ -22,6 +22,29 @@ export const THEME_PRESETS = {
       chartMutedHover: 'rgba(248, 113, 113, 0.5)',
     },
   },
+  pink: {
+    id: 'pink',
+    label: 'Pink Berry',
+    swatch: '#db2777',
+    light: {
+      accent: '#db2777',
+      hover: '#be185d',
+      text: '#db2777',
+      soft: '#fdf2f8',
+      softBorder: '#fbcfe8',
+      chartMuted: '#fbcfe8',
+      chartMutedHover: '#f9a8d4',
+    },
+    dark: {
+      accent: '#db2777',
+      hover: '#ec4899',
+      text: '#f472b6',
+      soft: 'rgba(219, 39, 119, 0.18)',
+      softBorder: 'rgba(244, 114, 182, 0.35)',
+      chartMuted: 'rgba(244, 114, 182, 0.28)',
+      chartMutedHover: 'rgba(244, 114, 182, 0.5)',
+    },
+  },
   orange: {
     id: 'orange',
     label: 'Oranye Sambal',
@@ -141,7 +164,8 @@ export const THEME_PRESETS = {
 
 export const DEFAULT_THEME = {
   mode: 'light', // 'light' | 'dark'
-  accent: 'crimson',
+  accent: 'crimson', // key of THEME_PRESETS or 'custom'
+  customColor: '#db2777',
   headerStyle: 'dark', // 'dark' | 'accent' | 'surface'
   radius: 'modern', // 'sharp' | 'modern' | 'soft'
   density: 'normal', // 'compact' | 'normal' | 'comfortable'
@@ -151,16 +175,82 @@ export const DEFAULT_THEME = {
 
 const STORAGE_KEY = 'pos_theme_prefs_v1';
 
+const normalizeHex = (hex) => {
+  if (typeof hex !== 'string') return '#db2777';
+  const clean = hex.trim();
+  return /^#[0-9a-fA-F]{6}$/.test(clean) ? clean.toLowerCase() : '#db2777';
+};
+
+const hexToRgb = (hex) => {
+  const n = normalizeHex(hex).slice(1);
+  return {
+    r: parseInt(n.slice(0, 2), 16),
+    g: parseInt(n.slice(2, 4), 16),
+    b: parseInt(n.slice(4, 6), 16),
+  };
+};
+
+const rgbToHex = (r, g, b) =>
+  `#${[r, g, b]
+    .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
+    .join('')}`;
+
+const mixHex = (hexA, hexB, weightB) => {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+  const w = Math.max(0, Math.min(1, weightB));
+  return rgbToHex(
+    a.r * (1 - w) + b.r * w,
+    a.g * (1 - w) + b.g * w,
+    a.b * (1 - w) + b.b * w
+  );
+};
+
+const buildCustomTokens = (hex, isDark) => {
+  const base = normalizeHex(hex);
+  const { r, g, b } = hexToRgb(base);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  // Ensure buttons with white text remain readable even if user picks a pastel color
+  const safeButtonAccent = luminance > 0.68 ? mixHex(base, '#000000', 0.35) : base;
+
+  if (isDark) {
+    const brightText = luminance < 0.45 ? mixHex(base, '#ffffff', 0.48) : base;
+    return {
+      accent: safeButtonAccent,
+      hover: mixHex(safeButtonAccent, '#ffffff', 0.14),
+      text: brightText,
+      soft: `rgba(${r}, ${g}, ${b}, 0.18)`,
+      softBorder: `rgba(${r}, ${g}, ${b}, 0.38)`,
+      chartMuted: `rgba(${r}, ${g}, ${b}, 0.28)`,
+      chartMutedHover: `rgba(${r}, ${g}, ${b}, 0.5)`,
+    };
+  }
+
+  return {
+    accent: safeButtonAccent,
+    hover: mixHex(safeButtonAccent, '#000000', 0.16),
+    text: luminance > 0.6 ? mixHex(base, '#000000', 0.38) : base,
+    soft: mixHex(base, '#ffffff', 0.9),
+    softBorder: mixHex(base, '#ffffff', 0.72),
+    chartMuted: mixHex(base, '#ffffff', 0.68),
+    chartMutedHover: mixHex(base, '#ffffff', 0.48),
+  };
+};
+
 export function loadThemePrefs() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_THEME;
     const parsed = JSON.parse(raw);
+    const isValidAccent =
+      parsed.accent === 'custom' || Boolean(THEME_PRESETS[parsed.accent]);
     return {
       ...DEFAULT_THEME,
       ...parsed,
       mode: parsed.mode === 'dark' ? 'dark' : 'light',
-      accent: THEME_PRESETS[parsed.accent] ? parsed.accent : DEFAULT_THEME.accent,
+      accent: isValidAccent ? parsed.accent : DEFAULT_THEME.accent,
+      customColor: normalizeHex(parsed.customColor || DEFAULT_THEME.customColor),
       headerStyle: ['dark', 'accent', 'surface'].includes(parsed.headerStyle)
         ? parsed.headerStyle
         : DEFAULT_THEME.headerStyle,
@@ -187,8 +277,12 @@ export function saveThemePrefs(prefs) {
 export function applyThemeToDocument(theme) {
   const root = document.documentElement;
   const isDark = theme.mode === 'dark';
-  const preset = THEME_PRESETS[theme.accent] || THEME_PRESETS.crimson;
-  const tokens = isDark ? preset.dark : preset.light;
+  const tokens =
+    theme.accent === 'custom'
+      ? buildCustomTokens(theme.customColor, isDark)
+      : (THEME_PRESETS[theme.accent] || THEME_PRESETS.crimson)[
+          isDark ? 'dark' : 'light'
+        ];
 
   if (isDark) {
     root.classList.add('dark');
@@ -214,4 +308,18 @@ export function applyThemeToDocument(theme) {
   const r = radiusMap[theme.radius] || radiusMap.modern;
   root.style.setProperty('--radius-card', r.card);
   root.style.setProperty('--radius-ctrl', r.ctrl);
+
+  // Sinkronkan meta theme-color agar bilah sistem Android/Huawei tidak memakai warna lama
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    const barColor =
+      theme.headerStyle === 'accent'
+        ? tokens.accent
+        : theme.headerStyle === 'surface'
+        ? isDark
+          ? '#18181b'
+          : '#ffffff'
+        : '#09090b';
+    metaTheme.setAttribute('content', barColor);
+  }
 }

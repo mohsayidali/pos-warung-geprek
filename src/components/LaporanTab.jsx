@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Download,
   Printer,
@@ -31,7 +31,15 @@ export default function LaporanTab({
   onExportExcel,
   onOpenPdfPreview,
 }) {
-  const [todayAnchor] = React.useState(() => formatDateInput(new Date()));
+  const [todayAnchor, setTodayAnchor] = useState(() => formatDateInput(new Date()));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = formatDateInput(new Date());
+      setTodayAnchor((prev) => (prev === next ? prev : next));
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const { startStr, endStr, periodLabel } = useMemo(() => {
     const todayStr = todayAnchor;

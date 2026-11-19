@@ -104,11 +104,11 @@ export default function MenuTab({
       </div>
 
       {/* Baris Filter Kategori Pil */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-2.5 custom-scrollbar flex-shrink-0">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2.5 custom-scrollbar flex-shrink-0">
         <button
           type="button"
           onClick={() => setSelectedCategory('Semua')}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
+          className={`px-4 py-1.5 sm:py-2 rounded-full text-sm sm:text-[15px] font-bold whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
             selectedCategory === 'Semua'
               ? 'bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
               : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
@@ -123,7 +123,7 @@ export default function MenuTab({
               key={cat}
               type="button"
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
+              className={`px-4 py-1.5 sm:py-2 rounded-full text-sm sm:text-[15px] font-bold whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
                 selectedCategory === cat
                   ? 'bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
                   : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'

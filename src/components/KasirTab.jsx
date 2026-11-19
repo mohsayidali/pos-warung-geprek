@@ -131,21 +131,21 @@ function CartItemCard({
   );
 
   return (
-    <div className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-800/60 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors">
+    <div className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-800/60 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors">
       {/* Tampilan Mobile (< sm): Nama menu penuh di atas, harga & kontrol sejajar di bawah */}
       <div className="sm:hidden space-y-1.5">
         <div className="flex items-start justify-between gap-2">
-          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 leading-snug">
+          <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">
             {item.name}
           </h4>
           {hasNote && !isNoteOpen && (
-            <span className="text-[10px] font-semibold text-[var(--accent-text)] truncate max-w-[110px]">
+            <span className="text-[11px] font-semibold text-[var(--accent-text)] truncate max-w-[110px]">
               “{item.note}”
             </span>
           )}
         </div>
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 tabular-nums">
+          <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 tabular-nums">
             {formatIDR(item.price)} &times; {qtyNum} ={' '}
             <span className="text-[var(--accent-text)] font-bold">
               {formatIDR(lineTotal)}
@@ -158,13 +158,13 @@ function CartItemCard({
         </div>
       </div>
 
-      {/* Tampilan Tablet / Desktop (sm+): 1 baris padat muat 3 item tanpa scroll */}
-      <div className="hidden sm:flex items-center justify-between gap-2">
+      {/* Tampilan Tablet / Desktop (sm+): Nama menu jelas & muat 4-5 item sebelum scroll */}
+      <div className="hidden sm:flex items-center justify-between gap-2.5">
         <div className="min-w-0 flex-1">
-          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 leading-tight truncate">
+          <h4 className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-zinc-100 leading-snug truncate">
             {item.name}
           </h4>
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5 tabular-nums truncate">
+          <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-0.5 tabular-nums truncate">
             {formatIDR(item.price)} &times; {qtyNum} ={' '}
             <span className="text-[var(--accent-text)] font-bold">
               {formatIDR(lineTotal)}
@@ -260,7 +260,7 @@ export default function KasirTab({
   const renderCartItems = () => {
     if (cart.length === 0) {
       return (
-        <div className="flex-1 flex flex-col items-center justify-center text-center py-8 text-slate-400 dark:text-zinc-500">
+        <div className="flex-1 min-h-[180px] flex flex-col items-center justify-center text-center py-8 text-slate-400 dark:text-zinc-500">
           <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center mb-2.5 text-slate-300 dark:text-zinc-600">
             <ShoppingCart size={24} />
           </div>
@@ -275,7 +275,7 @@ export default function KasirTab({
     }
 
     return (
-      <div className="flex-1 overflow-y-auto space-y-1.5 sm:space-y-2 pr-0.5 custom-scrollbar">
+      <div className="flex-1 min-h-0 max-h-[325px] md:max-h-[345px] overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
         {cart.map((item) => (
           <CartItemCard
             key={item.cartId}
@@ -485,11 +485,11 @@ export default function KasirTab({
 
         {/* Baris Filter Kategori Pil Horizontal */}
         {menus.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-2 custom-scrollbar flex-shrink-0">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2 custom-scrollbar flex-shrink-0">
             <button
               type="button"
               onClick={() => setSelectedCategoryTab('Semua')}
-              className={`px-3 py-1.5 sm:py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
+              className={`px-4 py-1.5 sm:py-2 rounded-full text-sm sm:text-[15px] font-bold whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
                 selectedCategoryTab === 'Semua'
                   ? 'bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
                   : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
@@ -505,7 +505,7 @@ export default function KasirTab({
                   key={cat}
                   type="button"
                   onClick={() => setSelectedCategoryTab(cat)}
-                  className={`px-3 py-1.5 sm:py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
+                  className={`px-4 py-1.5 sm:py-2 rounded-full text-sm sm:text-[15px] font-bold whitespace-nowrap flex-shrink-0 transition-colors cursor-pointer ${
                     isActive
                       ? 'bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
                       : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
@@ -535,7 +535,7 @@ export default function KasirTab({
           ) : (
             <div
               className={`grid grid-cols-2 sm:grid-cols-3 gap-2.5 ${
-                cart.length > 0 ? 'pb-20 md:pb-6' : 'pb-6'
+                cart.length > 0 ? 'pb-32 md:pb-6' : 'pb-6'
               }`}
             >
               {filteredMenus.map((menu) => (
@@ -605,8 +605,8 @@ export default function KasirTab({
         </div>
       </div>
 
-      {/* PANEL KANAN: Sidebar Keranjang Diperlebar (Muat 3 Item Tanpa Scroll) */}
-      <aside className="hidden md:flex md:w-[420px] lg:w-[470px] xl:w-[510px] flex-shrink-0 flex-col h-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 theme-card p-3.5 overflow-hidden">
+      {/* PANEL KANAN: Sidebar Keranjang (Muat 4-5 Item Sebelum Scroll) */}
+      <aside className="hidden md:flex md:w-[420px] lg:w-[470px] xl:w-[510px] flex-shrink-0 flex-col md:h-auto md:max-h-full md:self-start bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 theme-card p-3.5 overflow-hidden">
         <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200 dark:border-zinc-800 flex-shrink-0">
           <div className="flex items-center gap-2">
             <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-zinc-100">
@@ -633,7 +633,7 @@ export default function KasirTab({
 
       {/* FLOATING CART BUTTON (Mobile < md) */}
       {!isMobileCartOpen && cart.length > 0 && (
-        <div className="md:hidden fixed bottom-[68px] left-3 right-3 z-30">
+        <div className="md:hidden fixed bottom-[calc(68px+env(safe-area-inset-bottom))] left-3 right-3 z-30">
           <button
             type="button"
             onClick={() => setIsMobileCartOpen(true)}
@@ -667,7 +667,7 @@ export default function KasirTab({
             className="absolute inset-0 bg-black/60 backdrop-blur-xs"
             onClick={() => setIsMobileCartOpen(false)}
           />
-          <div className="relative bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 rounded-t-3xl max-h-[90vh] flex flex-col p-3.5 pb-5 shadow-2xl">
+          <div className="relative bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 rounded-t-3xl max-h-[90vh] flex flex-col p-3.5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl">
             <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-zinc-700 mx-auto mb-2.5 flex-shrink-0" />
             <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200 dark:border-zinc-800 flex-shrink-0">
               <div className="flex items-center gap-2">
