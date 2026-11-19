@@ -226,6 +226,16 @@ export default function App() {
     };
   }, [fetchSettings, fetchCategories, fetchMenus, fetchOrders]);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    void Promise.resolve().then(() => {
+      fetchSettings();
+      fetchCategories();
+      fetchMenus();
+      fetchOrders();
+    });
+  }, [currentUser, fetchSettings, fetchCategories, fetchMenus, fetchOrders]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setShowSettingsModal(false);
